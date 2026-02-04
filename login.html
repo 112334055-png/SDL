@@ -1,39 +1,33 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Login Page</title>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<center>
-    <h2>Login Page</h2>
+<div class="login-container">
+    <h2>Login</h2>
 
     <form>
-        <table border="1" cellpadding="10">
-            <tr>
-                <td>Username</td>
-                <td>
-                    <input type="text" name="username" placeholder="Enter username" required>
-                </td>
-            </tr>
+        <div class="input-group">
+            <label>Email</label>
+            <input type="email" placeholder="Enter your email" required>
+        </div>
 
-            <tr>
-                <td>Password</td>
-                <td>
-                    <input type="password" name="password" placeholder="Enter password" required>
-                </td>
-            </tr>
+        <div class="input-group">
+            <label>Password</label>
+            <input type="password" placeholder="Enter your password" required>
+        </div>
 
-            <tr>
-                <td colspan="2" align="center">
-                    <input type="submit" value="Login">
-                </td>
-            </tr>
-        </table>
+        <button type="submit">Login</button>
+
+        <p class="signup">
+            Don’t have an account? <a href="#">Sign up</a>
+        </p>
     </form>
-
-</center>
+</div>
 
 </body>
 </html>
- 
