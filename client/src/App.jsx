@@ -17,7 +17,7 @@ function App() {
 
       {/* Render component based on activePage */}
       {activePage === "Home" && <Home />}
-      {activePage === "Reports" && <BookUpload />}
+      {activePage === "BookUpload" && <BookUpload />}
     </div>
   );
 }
