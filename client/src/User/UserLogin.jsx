@@ -520,6 +520,7 @@ function UserLogin({ onClose, onSignup, onLoginSuccess }) {
   const [showPw, setShowPw] = useState(false);
   const [globalError, setGlobalError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+const [submitting, setSubmitting]   = useState(false); // ✅ ADD THIS
 
   const activeFields = mode === "member" ? ["email", "password"] : ["staffId", "password"];
 
@@ -545,47 +546,75 @@ function UserLogin({ onClose, onSignup, onLoginSuccess }) {
     setGlobalError("");
   };
 
- const handleSubmit = async () => {
+// ── In UserLogin.jsx — replace handleSubmit's fetch call with this ────────────
+
+const handleSubmit = async () => {
   const newTouched = Object.fromEntries(activeFields.map((k) => [k, true]));
-  const newErrors = Object.fromEntries(activeFields.map((k) => [k, validate(k, form[k])]));
-
+  const newErrors  = Object.fromEntries(activeFields.map((k) => [k, validate(k, form[k])]));
   setTouched((t) => ({ ...t, ...newTouched }));
-  setErrors((er) => ({ ...er, ...newErrors }));
+  setErrors((er)  => ({ ...er,  ...newErrors  }));
+  if (Object.values(newErrors).some((e) => e)) return;
 
-  if (Object.values(newErrors).every((e) => !e)) {
-    try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-       body: JSON.stringify({
-  email: form.email,
-  staffId: form.staffId,
-  password: form.password,
-  mode: mode   // ✅ ADD THIS LINE
-}),
-      });
+  setSubmitting(true);
+  setGlobalError("");
 
-      const data = await res.json();
+  try {
+    const res  = await fetch("http://localhost:5000/api/auth/login", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        mode:    mode,           // "member" | "librarian"
+        email:   form.email,
+        staffId: form.staffId,
+        password: form.password,
+      }),
+    });
 
-      if (!res.ok) {
-        setGlobalError(data.message || "Login failed");
-        return;
-      }
+    const data = await res.json();
 
-      // ✅ STORE TOKEN
-      localStorage.setItem("token", data.token);
-
-      // ✅ PASS USER DATA
-      onLoginSuccess(data.user);
-
-      setSubmitted(true);
-
-    } catch (err) {
-      setGlobalError("Server error. Try again.");
+    if (!res.ok) {
+      setGlobalError(data.message || "Login failed");
+      return;
     }
+
+    // ✅ Save token for Authorization headers in future requests
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user",  JSON.stringify(data.user));
+
+    setSubmitted(true);
+    onLoginSuccess?.({
+      name:    data.user.name,
+      email:   data.user.email,
+      staffId: data.user.staffId,
+      role:    data.user.role,
+      token:   data.token,
+    });
+
+  } catch (err) {
+    setGlobalError("Network error. Is the server running?");
+  } finally {
+    setSubmitting(false);
   }
+};
+
+
+// ── In LibrarianApprovals.jsx — the API helper already reads the token ────────
+// Make sure your apiFetch / API helper includes the Authorization header:
+
+const API = async (url, options = {}) => {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`http://localhost:5000${url}`, {
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),  // ✅ this line
+      ...options.headers,
+    },
+    ...options,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  return data;
 };
 
   return (
@@ -724,20 +753,35 @@ function UserLogin({ onClose, onSignup, onLoginSuccess }) {
                   
                 </div>
 
-                {/* Submit */}
-                <button
-                  className={`li-submit ${mode === "librarian" ? "librarian-mode" : ""}`}
-                  onClick={handleSubmit}
-                  type="button"
-                >
-                  {mode === "librarian" && (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="11" width="18" height="11" rx="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                  )}
-                  {mode === "member" ? "Sign In" : "Sign In as Librarian"}
-                </button>
+               <button
+  className={`li-submit ${mode === "librarian" ? "librarian-mode" : ""}`}
+  onClick={handleSubmit}
+  disabled={submitting}   // ✅ prevent double-clicks
+  type="button"
+>
+  {submitting ? (
+    <>
+      <div style={{
+        width: 15, height: 15,
+        border: "2px solid rgba(28,21,16,0.3)",
+        borderTopColor: "#1c1510",
+        borderRadius: "50%",
+        animation: "spin 0.8s linear infinite"
+      }} />
+      Signing in…
+    </>
+  ) : (
+    <>
+      {mode === "librarian" && (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="11" width="18" height="11" rx="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+      )}
+      {mode === "member" ? "Sign In" : "Sign In as Librarian"}
+    </>
+  )}
+</button>
 
                 {/* Divider */}
                 <div className="li-divider-row">

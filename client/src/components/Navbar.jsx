@@ -92,7 +92,7 @@ const LIBRARIAN_NAV_LINKS = [
     ),
   },
   {
-    label: "Settings",
+    label: "Approval",
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <circle cx="12" cy="12" r="3" />

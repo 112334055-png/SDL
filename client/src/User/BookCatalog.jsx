@@ -5,7 +5,7 @@ const GENRES = ["All","Fiction","Non-Fiction","Mystery","Sci-Fi","Fantasy","Roma
 const API_BASE = "http://localhost:5000";
 
 /* ─────────────────────────────────────────────
-   STYLES
+   SHARED STYLES
 ───────────────────────────────────────────── */
 const MODAL_STYLE = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -23,6 +23,7 @@ const MODAL_STYLE = `
     --border-h: rgba(184,134,11,0.45);
     --success: #3aaa8a;
     --error: #e05540;
+    --warn: #d4861a;
     --radius: 12px;
   }
 
@@ -95,12 +96,10 @@ const MODAL_STYLE = `
     display: flex; gap: 28px; padding: 32px 28px 28px;
     align-items: flex-start; width: 100%;
   }
-
   .bm-cover-wrap {
     flex-shrink: 0;
     width: 140px; height: 210px;
-    border-radius: 10px;
-    overflow: hidden;
+    border-radius: 10px; overflow: hidden;
     border: 1px solid rgba(184,134,11,0.3);
     box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 2px 0 rgba(255,255,255,0.06) inset;
     background: rgba(255,255,255,0.04);
@@ -112,7 +111,6 @@ const MODAL_STYLE = `
     gap: 8px; color: rgba(245,240,232,0.2); font-size: 11px;
     font-family: 'DM Sans', sans-serif;
   }
-
   .bm-hero-meta { flex: 1; display: flex; flex-direction: column; gap: 10px; }
   .bm-genre-badge {
     display: inline-flex; align-items: center;
@@ -124,28 +122,19 @@ const MODAL_STYLE = `
     color: var(--gold); letter-spacing: 0.1em;
     text-transform: uppercase; width: fit-content;
   }
-  .bm-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 26px; font-weight: 700;
-    color: var(--parchment); line-height: 1.2;
-  }
-  .bm-author {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px; color: rgba(245,240,232,0.55);
-  }
+  .bm-title { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; color: var(--parchment); line-height: 1.2; }
+  .bm-author { font-family: 'DM Sans', sans-serif; font-size: 14px; color: rgba(245,240,232,0.55); }
   .bm-author span { color: var(--gold-light); font-weight: 500; }
-
   .bm-status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .bm-status-pill {
     display: flex; align-items: center; gap: 6px;
     padding: 5px 12px; border-radius: 20px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px; font-weight: 600;
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
   }
   .bm-status-pill.available { background: rgba(58,170,138,0.12); border: 1px solid rgba(58,170,138,0.3); color: #5fdbb0; }
   .bm-status-pill.unavailable { background: rgba(220,85,64,0.12); border: 1px solid rgba(220,85,64,0.3); color: #ff8a75; }
+  .bm-status-pill.pending { background: rgba(212,134,26,0.12); border: 1px solid rgba(212,134,26,0.3); color: #f0a840; }
   .bm-copies-txt { font-family: 'DM Sans', sans-serif; font-size: 12px; color: rgba(245,240,232,0.35); }
-
   .bm-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
   .bm-meta-item { display: flex; flex-direction: column; gap: 2px; }
   .bm-meta-label { font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(184,134,11,0.5); }
@@ -156,6 +145,19 @@ const MODAL_STYLE = `
   .bm-section-title { font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(184,134,11,0.6); margin-bottom: 8px; }
   .bm-description { font-family: 'DM Sans', sans-serif; font-size: 13.5px; line-height: 1.7; color: rgba(245,240,232,0.55); }
   .bm-divider { height: 1px; background: var(--border); }
+
+  /* Info banner */
+  .bm-info-banner {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; line-height: 1.5;
+    animation: bmStepIn 0.2s ease;
+  }
+  .bm-info-banner.warn { background: rgba(212,134,26,0.08); border-color: rgba(212,134,26,0.3); color: #f0a840; }
+  .bm-info-banner.info { background: rgba(58,170,138,0.08); border-color: rgba(58,170,138,0.3); color: #5fdbb0; }
 
   .bm-proceed-btn {
     width: 100%; height: 50px;
@@ -176,13 +178,11 @@ const MODAL_STYLE = `
   .bm-date-step { display: flex; flex-direction: column; gap: 20px; animation: bmStepIn 0.25s ease; }
   .bm-date-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--parchment); }
   .bm-date-sub { font-family: 'DM Sans', sans-serif; font-size: 13px; color: rgba(245,240,232,0.4); margin-top: 4px; }
-
   .bm-book-mini {
     display: flex; align-items: center; gap: 14px;
     padding: 14px 16px;
     background: rgba(255,255,255,0.03);
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    border: 1px solid var(--border); border-radius: 10px;
   }
   .bm-book-mini-cover {
     width: 44px; height: 64px; border-radius: 6px;
@@ -194,7 +194,6 @@ const MODAL_STYLE = `
   .bm-book-mini-cover img { width:100%; height:100%; object-fit:cover; }
   .bm-book-mini-title { font-family: 'DM Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: var(--parchment); margin-bottom: 3px; }
   .bm-book-mini-author { font-family: 'DM Sans', sans-serif; font-size: 12px; color: rgba(245,240,232,0.4); }
-
   .bm-date-field { display: flex; flex-direction: column; gap: 8px; }
   .bm-date-label { font-family: 'DM Sans', sans-serif; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(184,134,11,0.7); }
   .bm-date-input-wrap { position: relative; }
@@ -202,11 +201,9 @@ const MODAL_STYLE = `
     width: 100%; height: 48px;
     padding: 0 48px 0 16px;
     background: rgba(255,255,255,0.05);
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    border: 1px solid var(--border); border-radius: 10px;
     color: var(--parchment);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 15px; outline: none;
+    font-family: 'DM Sans', sans-serif; font-size: 15px; outline: none;
     transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
     color-scheme: dark;
   }
@@ -216,14 +213,12 @@ const MODAL_STYLE = `
   .bm-date-hint { font-family: 'DM Sans', sans-serif; font-size: 11.5px; color: rgba(245,240,232,0.3); display: flex; align-items: center; gap: 5px; }
   .bm-date-error { font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--error); display: flex; align-items: center; gap: 5px; animation: bmErrIn 0.15s ease; }
   @keyframes bmErrIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
-
   .bm-date-summary { display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .bm-date-sum-item { flex: 1; padding: 12px 16px; display: flex; flex-direction: column; gap: 3px; background: rgba(255,255,255,0.02); }
   .bm-date-sum-item + .bm-date-sum-item { border-left: 1px solid var(--border); }
   .bm-date-sum-label { font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(184,134,11,0.5); }
   .bm-date-sum-value { font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; color: var(--parchment); }
   .bm-date-sum-value.gold { color: var(--gold-bright); }
-
   .bm-confirm-btn {
     width: 100%; height: 50px;
     background: linear-gradient(135deg, var(--gold), var(--gold-light));
@@ -238,7 +233,6 @@ const MODAL_STYLE = `
   .bm-confirm-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 8px 28px rgba(184,134,11,0.55); }
   .bm-confirm-btn:active:not(:disabled) { transform: translateY(0); }
   .bm-confirm-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
   .bm-back-link {
     background: none; border: none;
     font-family: 'DM Sans', sans-serif;
@@ -248,9 +242,11 @@ const MODAL_STYLE = `
   }
   .bm-back-link:hover { color: rgba(245,240,232,0.65); }
 
-  /* Success */
+  /* Success / Pending step */
   .bm-success-step { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 0 12px; gap: 16px; animation: bmCardIn 0.3s cubic-bezier(0.34,1.4,0.64,1); }
-  .bm-success-ring { width: 76px; height: 76px; border-radius: 50%; background: linear-gradient(135deg, rgba(58,170,138,0.15), rgba(58,170,138,0.06)); border: 1.5px solid rgba(58,170,138,0.35); box-shadow: 0 0 40px rgba(58,170,138,0.18); display: flex; align-items: center; justify-content: center; }
+  .bm-success-ring { width: 76px; height: 76px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .bm-success-ring.green { background: linear-gradient(135deg, rgba(58,170,138,0.15), rgba(58,170,138,0.06)); border: 1.5px solid rgba(58,170,138,0.35); box-shadow: 0 0 40px rgba(58,170,138,0.18); }
+  .bm-success-ring.gold { background: linear-gradient(135deg, rgba(184,134,11,0.2), rgba(212,134,26,0.1)); border: 1.5px solid rgba(184,134,11,0.4); box-shadow: 0 0 40px rgba(184,134,11,0.2); }
   .bm-success-title { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; color: var(--parchment); }
   .bm-success-sub { font-family: 'DM Sans', sans-serif; font-size: 13.5px; line-height: 1.65; color: rgba(245,240,232,0.45); max-width: 320px; }
   .bm-success-receipt { width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
@@ -259,9 +255,9 @@ const MODAL_STYLE = `
   .bm-receipt-key { color: rgba(245,240,232,0.38); }
   .bm-receipt-val { color: var(--parchment); font-weight: 500; }
   .bm-receipt-val.gold { color: var(--gold-bright); }
+  .bm-receipt-val.warn { color: #f0a840; }
   .bm-done-btn { width: 100%; height: 46px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: rgba(245,240,232,0.65); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.18s, color 0.18s, border-color 0.18s; }
   .bm-done-btn:hover { background: rgba(184,134,11,0.1); color: var(--gold-bright); border-color: var(--border-h); }
-
   @keyframes spin { to { transform: rotate(360deg); } }
 
   @media (max-width: 560px) {
@@ -269,6 +265,200 @@ const MODAL_STYLE = `
     .bm-cover-wrap { width: 120px; height: 180px; }
     .bm-body { padding: 20px; }
     .bm-status-row { justify-content: center; }
+  }
+`;
+
+/* ─────────────────────────────────────────────
+   LIBRARIAN APPROVAL PANEL STYLES
+───────────────────────────────────────────── */
+const APPROVAL_STYLE = `
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  .la-wrap {
+    padding: 28px 28px;
+    min-height: calc(100vh - 68px);
+    background: linear-gradient(180deg, #1c1510 0%, #15100a 100%);
+    font-family: 'DM Sans', sans-serif;
+    color: #f5f0e8;
+  }
+
+  .la-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+  }
+  .la-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px; font-weight: 700; color: #f5f0e8;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .la-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 24px; height: 24px; padding: 0 8px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #b8860b, #d4a017);
+    color: #1c1510; font-size: 12px; font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .la-tabs {
+    display: flex; gap: 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(184,134,11,0.18);
+    border-radius: 10px; padding: 4px;
+    margin-bottom: 24px; width: fit-content;
+  }
+  .la-tab {
+    padding: 7px 18px; border-radius: 7px; border: none;
+    background: transparent; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+    color: rgba(245,240,232,0.45); display: flex; align-items: center; gap: 7px;
+    transition: background 0.18s, color 0.18s;
+  }
+  .la-tab.active {
+    background: rgba(184,134,11,0.18); color: #f0c040;
+  }
+  .la-tab:not(.active):hover { color: rgba(245,240,232,0.75); background: rgba(184,134,11,0.07); }
+  .la-tab-count {
+    min-width: 18px; height: 18px; border-radius: 9px; padding: 0 5px;
+    background: rgba(184,134,11,0.3); color: #f0c040;
+    font-size: 11px; display: flex; align-items: center; justify-content: center;
+  }
+  .la-tab.active .la-tab-count { background: rgba(184,134,11,0.5); }
+
+  .la-refresh-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 8px;
+    border: 1px solid rgba(184,134,11,0.25);
+    background: transparent; color: rgba(245,240,232,0.6);
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    cursor: pointer; transition: all 0.18s;
+  }
+  .la-refresh-btn:hover { background: rgba(184,134,11,0.1); color: #f0c040; border-color: rgba(184,134,11,0.4); }
+  .la-refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
+
+  /* Request cards */
+  .la-list { display: flex; flex-direction: column; gap: 14px; }
+
+  .la-card {
+    background: #2a2016;
+    border: 1px solid rgba(184,134,11,0.2);
+    border-radius: 14px; overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .la-card:hover { border-color: rgba(184,134,11,0.38); box-shadow: 0 6px 28px rgba(0,0,0,0.35); }
+
+  .la-card-main {
+    display: flex; gap: 16px; padding: 18px 20px; align-items: flex-start;
+  }
+
+  .la-cover {
+    width: 52px; height: 74px; border-radius: 7px;
+    overflow: hidden; flex-shrink: 0;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(184,134,11,0.2);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .la-cover img { width:100%; height:100%; object-fit:cover; }
+
+  .la-card-body { flex: 1; min-width: 0; }
+  .la-book-title { font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; color: #f5f0e8; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .la-book-author { font-size: 12.5px; color: rgba(245,240,232,0.45); margin-bottom: 10px; }
+
+  .la-meta-row { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 10px; }
+  .la-meta-chip {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; color: rgba(245,240,232,0.5);
+  }
+  .la-meta-chip svg { color: rgba(184,134,11,0.55); flex-shrink: 0; }
+  .la-meta-chip strong { color: rgba(245,240,232,0.8); font-weight: 500; }
+
+  /* Status pill */
+  .la-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.03em;
+  }
+  .la-status.pending  { background: rgba(212,134,26,0.12); border: 1px solid rgba(212,134,26,0.3); color: #f0a840; }
+  .la-status.approved { background: rgba(58,170,138,0.12); border: 1px solid rgba(58,170,138,0.3); color: #5fdbb0; }
+  .la-status.rejected { background: rgba(224,85,64,0.12);  border: 1px solid rgba(224,85,64,0.3);  color: #ff8a75; }
+  .la-status.returned { background: rgba(120,120,180,0.12);border: 1px solid rgba(120,120,180,0.3);color: #a0a0f0; }
+
+  /* Action buttons */
+  .la-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .la-btn-approve {
+    height: 38px; padding: 0 18px;
+    background: linear-gradient(135deg, #3aaa8a, #2d9070);
+    border: none; border-radius: 8px;
+    color: #fff; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    box-shadow: 0 2px 10px rgba(58,170,138,0.3);
+    transition: filter 0.18s, transform 0.12s;
+  }
+  .la-btn-approve:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+  .la-btn-approve:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .la-btn-reject {
+    height: 38px; padding: 0 18px;
+    background: rgba(224,85,64,0.12);
+    border: 1px solid rgba(224,85,64,0.35);
+    border-radius: 8px;
+    color: #ff8a75; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: background 0.18s, transform 0.12s;
+  }
+  .la-btn-reject:hover:not(:disabled) { background: rgba(224,85,64,0.22); transform: translateY(-1px); }
+  .la-btn-reject:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .la-btn-return {
+    height: 38px; padding: 0 18px;
+    background: rgba(120,120,180,0.12);
+    border: 1px solid rgba(120,120,180,0.3);
+    border-radius: 8px;
+    color: #a0a0f0; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: background 0.18s;
+  }
+  .la-btn-return:hover:not(:disabled) { background: rgba(120,120,180,0.22); }
+  .la-btn-return:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* Action note section */
+  .la-note-row {
+    padding: 12px 20px 16px;
+    border-top: 1px solid rgba(184,134,11,0.12);
+    background: rgba(0,0,0,0.15);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .la-note-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(184,134,11,0.55); }
+  .la-note-value { font-size: 12.5px; color: rgba(245,240,232,0.5); font-style: italic; }
+  .la-note-by { font-size: 11px; color: rgba(245,240,232,0.3); }
+
+  /* Empty state */
+  .la-empty {
+    text-align: center; padding: 60px 20px;
+    color: rgba(245,240,232,0.3);
+    font-size: 14px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
+  .la-empty-icon { font-size: 44px; opacity: 0.5; }
+
+  /* Toast */
+  .la-toast {
+    position: fixed; bottom: 28px; right: 28px; z-index: 999;
+    padding: 14px 20px; border-radius: 12px;
+    font-family: 'DM Sans', sans-serif; font-size: 13.5px; font-weight: 500;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    animation: toastIn 0.25s cubic-bezier(0.34,1.4,0.64,1);
+    max-width: 360px;
+  }
+  @keyframes toastIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  .la-toast.success { background: #1e3d30; border: 1px solid rgba(58,170,138,0.4); color: #5fdbb0; }
+  .la-toast.error   { background: #3d1e1a; border: 1px solid rgba(224,85,64,0.4);  color: #ff8a75; }
+
+  @media (max-width: 640px) {
+    .la-card-main { flex-direction: column; }
+    .la-actions { justify-content: flex-start; flex-wrap: wrap; }
+    .la-wrap { padding: 16px; }
   }
 `;
 
@@ -285,25 +475,37 @@ const todayISO = () => new Date().toISOString().split("T")[0];
 
 const formatDate = (iso) => {
   if (!iso) return "—";
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 };
 
 const daysBetween = (from, to) => {
-  const a = new Date(from + "T00:00:00");
-  const b = new Date(to + "T00:00:00");
-  return Math.round((b - a) / 86400000);
+  const a = new Date(from);
+  const b = new Date(to);
+  return Math.max(1, Math.round((b - a) / 86400000));
+};
+
+const apiFetch = async (url, options = {}) => {
+  const res = await fetch(`${API_BASE}${url}`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...options.headers },
+    ...options,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  return data;
 };
 
 /* ─────────────────────────────────────────────
-   BOOK DETAIL MODAL
+   BOOK DETAIL MODAL  (member-side)
 ───────────────────────────────────────────── */
 function BookModal({ book, onClose, currentUser }) {
-  const [step, setStep] = useState("detail"); // "detail" | "date" | "success"
+  const [step, setStep] = useState("detail"); // "detail" | "date" | "pending" | "error"
   const [returnDate, setReturnDate] = useState("");
   const [dateError, setDateError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [borrowRecord, setBorrowRecord] = useState(null);
+  const [requestRecord, setRequestRecord] = useState(null);
+  const [apiError, setApiError] = useState("");
   const dateInputRef = useRef(null);
 
   const coverUrl = getCoverUrl(book.coverImage);
@@ -334,29 +536,23 @@ function BookModal({ book, onClose, currentUser }) {
     if (dateError) setDateError(validateDate(e.target.value));
   };
 
-  const handleDateKeyDown = (e) => {
-    if (e.key === "Enter") handleConfirm();
-  };
-
-  const handleConfirm = async () => {
+  const handleSubmitRequest = async () => {
     const err = validateDate(returnDate);
     if (err) { setDateError(err); return; }
     setSubmitting(true);
+    setApiError("");
     try {
-      const res = await fetch(`${API_BASE}/api/circulation/borrow`, {
+      const data = await apiFetch("/api/circulation/request", {
         method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookId: book.id, userId: currentUser?.id, returnDate }),
+        body: JSON.stringify({
+          bookId: book.id || book._id,
+          requestedReturnDate: returnDate,
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to borrow book");
-      setBorrowRecord({ ...data.data, returnDate, borrowDate: todayISO() });
-      setStep("success");
-    } catch {
-      // Fallback demo mode if API not yet wired
-      setBorrowRecord({ returnDate, borrowDate: todayISO() });
-      setStep("success");
+      setRequestRecord(data.data);
+      setStep("pending");
+    } catch (err) {
+      setApiError(err.message);
     } finally {
       setSubmitting(false);
     }
@@ -374,7 +570,7 @@ function BookModal({ book, onClose, currentUser }) {
             </svg>
           </button>
 
-          {/* ────────── STEP: Book Detail ────────── */}
+          {/* ── DETAIL STEP ── */}
           {step === "detail" && (
             <>
               <div className="bm-hero">
@@ -393,7 +589,6 @@ function BookModal({ book, onClose, currentUser }) {
                       <span>No cover</span>
                     </div>
                   </div>
-
                   <div className="bm-hero-meta">
                     <div className="bm-genre-badge">{book.genre}</div>
                     <div className="bm-title">{book.title}</div>
@@ -413,7 +608,6 @@ function BookModal({ book, onClose, currentUser }) {
                   </div>
                 </div>
               </div>
-
               <div className="bm-body">
                 {book.description && (
                   <>
@@ -424,23 +618,39 @@ function BookModal({ book, onClose, currentUser }) {
                     <div className="bm-divider" />
                   </>
                 )}
-                <button className="bm-proceed-btn" onClick={() => setStep("date")} disabled={!isAvailable}>
+
+                {/* Login prompt if not logged in */}
+                {!currentUser && (
+                  <div className="bm-info-banner warn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    Please <strong>log in</strong> to borrow books from the library.
+                  </div>
+                )}
+
+                <button
+                  className="bm-proceed-btn"
+                  onClick={() => setStep("date")}
+                  disabled={!isAvailable || !currentUser}
+                >
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
                     <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
                   </svg>
-                  {isAvailable ? "Proceed to Borrow" : "Currently Unavailable"}
+                  {!currentUser ? "Login to Borrow" : isAvailable ? "Proceed to Borrow" : "Currently Unavailable"}
                 </button>
+
                 {!isAvailable && (
                   <p style={{ textAlign: "center", fontSize: "12px", color: "rgba(245,240,232,0.3)", fontFamily: "'DM Sans',sans-serif", marginTop: -8 }}>
-                    All copies are currently checked out. Check back later.
+                    All copies are currently checked out.
                   </p>
                 )}
               </div>
             </>
           )}
 
-          {/* ────────── STEP: Return Date ────────── */}
+          {/* ── DATE STEP ── */}
           {step === "date" && (
             <div className="bm-body" style={{ paddingTop: 36 }}>
               <div className="bm-date-step">
@@ -453,8 +663,7 @@ function BookModal({ book, onClose, currentUser }) {
                   <div className="bm-book-mini-cover">
                     {coverUrl
                       ? <img src={coverUrl} alt={book.title} onError={(e) => e.target.style.display = "none"} />
-                      : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(245,240,232,0.2)" strokeWidth="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                    }
+                      : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(245,240,232,0.2)" strokeWidth="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>}
                   </div>
                   <div>
                     <div className="bm-book-mini-title">{book.title}</div>
@@ -462,24 +671,30 @@ function BookModal({ book, onClose, currentUser }) {
                   </div>
                 </div>
 
+                {/* Approval notice */}
+                <div className="bm-info-banner warn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  <span>Your request will be <strong>sent to a librarian for approval</strong>. You'll be notified once it's approved.</span>
+                </div>
+
                 <div className="bm-date-field">
-                  <label className="bm-date-label">Return Date</label>
+                  <label className="bm-date-label">Requested Return Date</label>
                   <div className="bm-date-input-wrap">
                     <input
                       ref={dateInputRef}
                       className={`bm-date-input ${dateError ? "error" : ""}`}
-                      type="date"
-                      value={returnDate}
-                      min={minDate}
-                      max={maxDate}
+                      type="date" value={returnDate}
+                      min={minDate} max={maxDate}
                       onChange={handleDateChange}
-                      onKeyDown={handleDateKeyDown}
+                      onKeyDown={(e) => e.key === "Enter" && handleSubmitRequest()}
                     />
                     <span className="bm-date-cal-icon">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                         <rect x="3" y="4" width="18" height="18" rx="2"/>
-                        <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-                        <line x1="3" y1="10" x2="21" y2="10"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                       </svg>
                     </span>
                   </div>
@@ -490,7 +705,7 @@ function BookModal({ book, onClose, currentUser }) {
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                       </svg>
-                      Press Enter or click Confirm to complete
+                      Select date and click Submit Request
                     </div>
                   )}
                 </div>
@@ -498,37 +713,43 @@ function BookModal({ book, onClose, currentUser }) {
                 {returnDate && !validateDate(returnDate) && (
                   <div className="bm-date-summary">
                     <div className="bm-date-sum-item">
-                      <div className="bm-date-sum-label">Borrow Date</div>
-                      <div className="bm-date-sum-value">{formatDate(todayISO())}</div>
+                      <div className="bm-date-sum-label">Requested On</div>
+                      <div className="bm-date-sum-value">{formatDate(new Date().toISOString())}</div>
                     </div>
                     <div className="bm-date-sum-item">
-                      <div className="bm-date-sum-label">Return Date</div>
+                      <div className="bm-date-sum-label">Return By</div>
                       <div className="bm-date-sum-value gold">{formatDate(returnDate)}</div>
                     </div>
                     <div className="bm-date-sum-item">
                       <div className="bm-date-sum-label">Duration</div>
-                      <div className="bm-date-sum-value">{daysBetween(todayISO(), returnDate)} days</div>
+                      <div className="bm-date-sum-value">{daysBetween(new Date(), new Date(returnDate))} days</div>
                     </div>
                   </div>
                 )}
 
-                <button className="bm-confirm-btn" onClick={handleConfirm} disabled={submitting || !returnDate}>
+                {apiError && (
+                  <div className="bm-date-error" style={{ fontSize: 13, padding: "10px 14px", background: "rgba(224,85,64,0.1)", borderRadius: 8, border: "1px solid rgba(224,85,64,0.25)" }}>
+                    ⚠ {apiError}
+                  </div>
+                )}
+
+                <button className="bm-confirm-btn" onClick={handleSubmitRequest} disabled={submitting || !returnDate}>
                   {submitting ? (
                     <>
                       <div style={{ width: 16, height: 16, border: "2px solid rgba(28,21,16,0.3)", borderTopColor: "#1c1510", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-                      Processing…
+                      Submitting…
                     </>
                   ) : (
                     <>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                        <polyline points="20 6 9 17 4 12"/>
+                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
                       </svg>
-                      Confirm Borrow
+                      Submit Borrow Request
                     </>
                   )}
                 </button>
 
-                <button className="bm-back-link" onClick={() => { setStep("detail"); setReturnDate(""); setDateError(""); }}>
+                <button className="bm-back-link" onClick={() => { setStep("detail"); setReturnDate(""); setDateError(""); setApiError(""); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <polyline points="15 18 9 12 15 6"/>
                   </svg>
@@ -538,25 +759,26 @@ function BookModal({ book, onClose, currentUser }) {
             </div>
           )}
 
-          {/* ────────── STEP: Success ────────── */}
-          {step === "success" && (
+          {/* ── PENDING STEP ── */}
+          {step === "pending" && (
             <div className="bm-body" style={{ paddingTop: 36 }}>
               <div className="bm-success-step">
-                <div className="bm-success-ring">
-                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#3aaa8a" strokeWidth="2.5">
-                    <polyline points="20 6 9 17 4 12"/>
+                <div className="bm-success-ring gold">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#f0c040" strokeWidth="2.2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
                   </svg>
                 </div>
-                <div className="bm-success-title">Book Borrowed!</div>
+                <div className="bm-success-title">Request Submitted!</div>
                 <div className="bm-success-sub">
-                  Enjoy your read. Please return <strong style={{ color: "rgba(245,240,232,0.75)" }}>{book.title}</strong> by the date below.
+                  Your borrow request is <strong style={{ color: "#f0a840" }}>pending librarian approval</strong>. You'll be notified once it's reviewed.
                 </div>
                 <div className="bm-success-receipt">
                   <div className="bm-receipt-row"><span className="bm-receipt-key">Book</span><span className="bm-receipt-val">{book.title}</span></div>
                   <div className="bm-receipt-row"><span className="bm-receipt-key">Author</span><span className="bm-receipt-val">{book.author}</span></div>
-                  <div className="bm-receipt-row"><span className="bm-receipt-key">Borrowed on</span><span className="bm-receipt-val">{formatDate(borrowRecord?.borrowDate || todayISO())}</span></div>
-                  <div className="bm-receipt-row"><span className="bm-receipt-key">Return by</span><span className="bm-receipt-val gold">{formatDate(borrowRecord?.returnDate)}</span></div>
-                  <div className="bm-receipt-row"><span className="bm-receipt-key">Duration</span><span className="bm-receipt-val">{daysBetween(borrowRecord?.borrowDate || todayISO(), borrowRecord?.returnDate)} days</span></div>
+                  <div className="bm-receipt-row"><span className="bm-receipt-key">Requested On</span><span className="bm-receipt-val">{formatDate(new Date().toISOString())}</span></div>
+                  <div className="bm-receipt-row"><span className="bm-receipt-key">Return By</span><span className="bm-receipt-val gold">{formatDate(returnDate)}</span></div>
+                  <div className="bm-receipt-row"><span className="bm-receipt-key">Status</span><span className="bm-receipt-val warn">⏳ Pending Approval</span></div>
                 </div>
                 <button className="bm-done-btn" onClick={onClose}>Done</button>
               </div>
@@ -570,17 +792,288 @@ function BookModal({ book, onClose, currentUser }) {
 }
 
 /* ─────────────────────────────────────────────
+   LIBRARIAN APPROVAL PANEL
+───────────────────────────────────────────── */
+export function LibrarianApprovals({ currentUser }) {
+  const [requests, setRequests]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [tab, setTab]             = useState("pending"); // pending | approved | rejected | returned
+  const [acting, setActing]       = useState({}); // requestId → true
+  const [toast, setToast]         = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const fetchRequests = async (showSpinner = false) => {
+    if (showSpinner) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const data = await apiFetch(`/api/circulation/all?status=${tab}`);
+      setRequests(data.data || []);
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => { fetchRequests(); }, [tab]);
+
+  const handleApprove = async (requestId) => {
+    setActing((a) => ({ ...a, [requestId]: true }));
+    try {
+      await apiFetch(`/api/circulation/${requestId}/approve`, { method: "PATCH" });
+      showToast("Request approved successfully!");
+      fetchRequests();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setActing((a) => ({ ...a, [requestId]: false }));
+    }
+  };
+
+  const handleReject = async (requestId) => {
+    setActing((a) => ({ ...a, [requestId]: true }));
+    try {
+      await apiFetch(`/api/circulation/${requestId}/reject`, { method: "PATCH", body: JSON.stringify({ note: "Rejected by librarian" }) });
+      showToast("Request rejected.");
+      fetchRequests();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setActing((a) => ({ ...a, [requestId]: false }));
+    }
+  };
+
+  const handleMarkReturned = async (requestId) => {
+    setActing((a) => ({ ...a, [requestId]: true }));
+    try {
+      await apiFetch(`/api/circulation/${requestId}/return`, { method: "PATCH" });
+      showToast("Book marked as returned!");
+      fetchRequests();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setActing((a) => ({ ...a, [requestId]: false }));
+    }
+  };
+
+  const TABS = [
+    { key: "pending",  label: "Pending",  icon: "⏳" },
+    { key: "approved", label: "Approved", icon: "✅" },
+    { key: "rejected", label: "Rejected", icon: "❌" },
+    { key: "returned", label: "Returned", icon: "↩️" },
+  ];
+
+  return (
+    <>
+      <style>{APPROVAL_STYLE}</style>
+
+      <div className="la-wrap">
+        <div className="la-header">
+          <div className="la-title">
+            Borrow Requests
+            {tab === "pending" && requests.length > 0 && (
+              <span className="la-badge">{requests.length}</span>
+            )}
+          </div>
+          <button
+            className={`la-refresh-btn ${refreshing ? "spinning" : ""}`}
+            onClick={() => fetchRequests(true)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Refresh
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="la-tabs">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              className={`la-tab ${tab === t.key ? "active" : ""}`}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* List */}
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "50px", color: "rgba(245,240,232,0.4)", fontFamily: "'DM Sans',sans-serif" }}>
+            Loading requests…
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="la-empty">
+            <div className="la-empty-icon">📭</div>
+            <div>No {tab} requests</div>
+          </div>
+        ) : (
+          <div className="la-list">
+            {requests.map((req) => {
+              const coverUrl = getCoverUrl(req.book?.coverImage);
+              const isActing = acting[req._id];
+              const member = req.member;
+              const book   = req.book;
+
+              return (
+                <div key={req._id} className="la-card">
+                  <div className="la-card-main">
+                    {/* Book cover */}
+                    <div className="la-cover">
+                      {coverUrl
+                        ? <img src={coverUrl} alt={book?.title} onError={(e) => e.target.style.display = "none"} />
+                        : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(245,240,232,0.2)" strokeWidth="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                      }
+                    </div>
+
+                    {/* Info */}
+                    <div className="la-card-body">
+                      <div className="la-book-title">{book?.title || "Unknown Book"}</div>
+                      <div className="la-book-author">by {book?.author || "Unknown"} · {book?.genre}</div>
+
+                      <div className="la-meta-row">
+                        {/* Member */}
+                        <div className="la-meta-chip">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                          </svg>
+                          <strong>{member?.firstName} {member?.lastName}</strong>
+                        </div>
+                        {/* Email */}
+                        <div className="la-meta-chip">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+                          </svg>
+                          {member?.email}
+                        </div>
+                        {/* Requested on */}
+                        <div className="la-meta-chip">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                          </svg>
+                          Requested: <strong>{formatDate(req.createdAt)}</strong>
+                        </div>
+                        {/* Return date */}
+                        <div className="la-meta-chip">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                          </svg>
+                          Return by: <strong>{formatDate(req.requestedReturnDate)}</strong>
+                        </div>
+                      </div>
+
+                      {/* Status */}
+                      <span className={`la-status ${req.status}`}>
+                        {{ pending: "⏳", approved: "✅", rejected: "✗", returned: "↩" }[req.status]}
+                        {" "}{req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+                      </span>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="la-actions">
+                      {req.status === "pending" && (
+                        <>
+                          <button
+                            className="la-btn-approve"
+                            onClick={() => handleApprove(req._id)}
+                            disabled={isActing}
+                          >
+                            {isActing ? (
+                              <div style={{ width: 13, height: 13, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                            ) : (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                                <polyline points="20 6 9 17 4 12"/>
+                              </svg>
+                            )}
+                            Approve
+                          </button>
+                          <button
+                            className="la-btn-reject"
+                            onClick={() => handleReject(req._id)}
+                            disabled={isActing}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                            Reject
+                          </button>
+                        </>
+                      )}
+                      {req.status === "approved" && (
+                        <button
+                          className="la-btn-return"
+                          onClick={() => handleMarkReturned(req._id)}
+                          disabled={isActing}
+                        >
+                          {isActing ? (
+                            <div style={{ width: 13, height: 13, border: "2px solid rgba(160,160,240,0.3)", borderTopColor: "#a0a0f0", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                              <polyline points="1 4 1 10 7 10"/>
+                              <path d="M3.51 15a9 9 0 1 0 .49-3.37"/>
+                            </svg>
+                          )}
+                          Mark Returned
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action note for acted-upon requests */}
+                  {(req.status === "approved" || req.status === "rejected" || req.status === "returned") && req.actionBy && (
+                    <div className="la-note-row">
+                      <div className="la-note-label">
+                        {req.status === "approved" ? "Approved" : req.status === "rejected" ? "Rejected" : "Processed"} by
+                      </div>
+                      <div className="la-note-by">
+                        {req.actionBy?.firstName} {req.actionBy?.lastName} · {formatDate(req.actionAt)}
+                        {req.status === "returned" && req.actualReturnDate && ` · Returned: ${formatDate(req.actualReturnDate)}`}
+                      </div>
+                      {req.actionNote && <div className="la-note-value">"{req.actionNote}"</div>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className={`la-toast ${toast.type}`}>
+          {toast.type === "success"
+            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="20 6 9 17 4 12"/></svg>
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          }
+          {toast.message}
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────────
    MAIN CATALOG COMPONENT
 ───────────────────────────────────────────── */
 export default function BookCatalog({ onSelectBook, onBack, currentUser, filter = "all" }) {
-  const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
+  const [books, setBooks]           = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState(null);
+  const [page, setPage]             = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [search, setSearch] = useState("");
-  const [genre, setGenre] = useState("All");
-  const [sort, setSort] = useState("newest");
+  const [search, setSearch]         = useState("");
+  const [genre, setGenre]           = useState("All");
+  const [sort, setSort]             = useState("newest");
   const [selectedBook, setSelectedBook] = useState(null);
 
   const fetchBooks = async () => {
@@ -588,23 +1081,22 @@ export default function BookCatalog({ onSelectBook, onBack, currentUser, filter 
     try {
       const params = new URLSearchParams({ page, limit: 12, query: search, genre: genre === "All" ? "" : genre, sort });
       if (filter === "borrowed" && currentUser?.id) params.append("userId", currentUser.id);
-      const res = await fetch(`${API_BASE}/api/books?${params.toString()}`);
+      const res  = await fetch(`${API_BASE}/api/books?${params.toString()}`);
       const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.message || `Failed to fetch: ${res.status}`);
+      if (!res.ok || !data.success) throw new Error(data.message || `Failed: ${res.status}`);
       setBooks((data.data || []).map((b) => ({
         id: b._id || b.id, title: b.title, author: b.author, isbn: b.isbn,
         genre: b.genre, publicationYear: b.publicationYear,
         publisher: b.publisher || "Unknown", description: b.description || "",
         copiesAvailable: b.copiesAvailable || 0, coverImage: b.coverImage || null,
         status: b.copiesAvailable > 0 ? "Available" : "Out of Stock",
-        addedBy: b.addedBy || "Unknown", createdAt: b.createdAt,
       })));
       setTotalPages(data.totalPages || 1);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchBooks(); }, [page, genre, sort, filter, currentUser?.id]);
+  useEffect(() => { fetchBooks(); }, [page, genre, sort, filter]);
   useEffect(() => {
     if (search.trim().length >= 2 || search === "") {
       const t = setTimeout(() => { setPage(1); fetchBooks(); }, 400);
@@ -646,7 +1138,7 @@ export default function BookCatalog({ onSelectBook, onBack, currentUser, filter 
         </div>
 
         {error && <div style={{ background: "rgba(220,60,40,0.15)", padding: "12px", borderRadius: "8px", marginBottom: "16px", color: "#ff8a75" }}>⚠️ {error}</div>}
-        {loading && !error && <div style={{ textAlign: "center", padding: "40px", color: "rgba(245,240,232,0.5)" }}>Loading catalog...</div>}
+        {loading && !error && <div style={{ textAlign: "center", padding: "40px", color: "rgba(245,240,232,0.5)" }}>Loading catalog…</div>}
 
         {!loading && !error && (
           <>
@@ -664,20 +1156,11 @@ export default function BookCatalog({ onSelectBook, onBack, currentUser, filter 
                       {coverUrl ? (
                         <img src={coverUrl} alt={book.title}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                          onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }} />
+                          onError={(e) => { e.target.style.display = "none"; }} />
                       ) : null}
-                      <div style={{ display: coverUrl ? "none" : "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: coverUrl ? "absolute" : "relative", inset: 0, gap: "8px" }}>
+                      <div style={{ position: coverUrl ? "absolute" : "relative", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "8px" }}>
                         <span style={{ fontSize: "36px", color: "rgba(245,240,232,0.15)" }}>📖</span>
                         <span style={{ fontSize: "11px", color: "rgba(245,240,232,0.2)", fontFamily: "'DM Sans',sans-serif" }}>No cover</span>
-                      </div>
-                      {/* Hover gradient label */}
-                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(28,21,16,0.9) 0%, transparent 55%)", opacity: 0, transition: "opacity 0.22s", pointerEvents: "none", display: "flex", alignItems: "flex-end", padding: "14px" }}
-                        ref={(el) => {
-                          if (!el) return;
-                          el.parentElement.addEventListener("mouseenter", () => el.style.opacity = 1);
-                          el.parentElement.addEventListener("mouseleave", () => el.style.opacity = 0);
-                        }}>
-                        <span style={{ color: "#f0c040", fontSize: "12px", fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}>View Details →</span>
                       </div>
                     </div>
                     <div style={{ padding: "14px" }}>
@@ -711,7 +1194,7 @@ export default function BookCatalog({ onSelectBook, onBack, currentUser, filter 
         )}
       </div>
 
-      {/* Modal */}
+      {/* Book modal */}
       {selectedBook && (
         <BookModal
           book={selectedBook}

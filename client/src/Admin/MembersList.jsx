@@ -69,32 +69,7 @@ function MembersList({ onBack, currentUser }) {
     }
   };
 
-  // ── Fetch members ─────────────────────────────────────────────────────
-  const fetchMembers = async (query = "") => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const url = query 
-        ? `/api/users/search?query=${encodeURIComponent(query)}`
-        : `/api/users/members`;
-      
-      console.log(`🔍 Fetching: ${url}`);
-      
-      const result = await fetchJSON(url);
-      
-      if (result.success) {
-        setMembers(result.data.data || []);
-        console.log(`✅ Loaded ${result.data?.length || 0} members`);
-      }
-      
-    } catch (err) {
-      console.error("❌ Fetch members error:", err);
-      setError(err.message || "Failed to load members");
-    } finally {
-      setLoading(false);
-    }
-  };
+ 
 
   // ── Initial fetch ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -113,38 +88,73 @@ function MembersList({ onBack, currentUser }) {
     }
   }, [searchQuery]);
 
-  // ── Toggle block/unblock ──────────────────────────────────────────────
-  const handleToggleBlock = async (userId, currentStatus) => {
-    const newStatus = !currentStatus;
-    const action = newStatus ? "block" : "unblock";
-    
-    // Optimistic UI update
-    setMembers(prev => prev.map(m => 
-      m.id === userId ? { ...m, isBlocked: newStatus } : m
-    ));
-    setActionLoading(userId);
+// ── In MembersList.jsx — TWO changes needed ───────────────────────────────────
 
-    try {
-      const result = await fetchJSON(`/api/users/${userId}/block`, {
-        method: "PATCH",
-        body: JSON.stringify({ block: newStatus }),
-      });
+// CHANGE 1: Add this constant at the top of the file (line ~1, after imports)
+const API_BASE = "http://localhost:5000";
 
-      console.log(`✅ User ${action}ed:`, result.data);
-      
-    } catch (err) {
-      console.error(`❌ Failed to ${action} user:`, err);
-      
-      // Revert optimistic update
-      setMembers(prev => prev.map(m => 
-        m.id === userId ? { ...m, isBlocked: currentStatus } : m
-      ));
-      
-      alert(`Failed to ${action} user:\n\n${err.message}`);
-    } finally {
-      setActionLoading(null);
+
+// CHANGE 2: Update fetchMembers to use API_BASE + send Authorization header
+const fetchMembers = async (query = "") => {
+  try {
+    setLoading(true);
+    setError(null);
+
+    const token = localStorage.getItem("token");
+
+    const url = query
+      ? `${API_BASE}/api/users/search?query=${encodeURIComponent(query)}`
+      : `${API_BASE}/api/users/members`;  // ✅ was "/api/users/members" — hit Vite, not Express
+
+    console.log(`🔍 Fetching: ${url}`);
+
+    const result = await fetchJSON(url, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),  // ✅ send JWT
+      },
+    });
+
+    if (result.success) {
+      setMembers(result.data.data || []);
     }
-  };
+  } catch (err) {
+    console.error("❌ Fetch members error:", err);
+    setError(err.message || "Failed to load members");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+// CHANGE 3: Same fix for handleToggleBlock
+const handleToggleBlock = async (userId, currentStatus) => {
+  const newStatus = !currentStatus;
+  const action = newStatus ? "block" : "unblock";
+
+  setMembers((prev) => prev.map((m) => (m.id === userId ? { ...m, isBlocked: newStatus } : m)));
+  setActionLoading(userId);
+
+  const token = localStorage.getItem("token");
+
+  try {
+    const result = await fetchJSON(`${API_BASE}/api/users/${userId}/block`, {  // ✅ absolute URL
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ block: newStatus }),
+    });
+    console.log(`✅ User ${action}ed:`, result.data);
+  } catch (err) {
+    console.error(`❌ Failed to ${action} user:`, err);
+    setMembers((prev) => prev.map((m) => (m.id === userId ? { ...m, isBlocked: currentStatus } : m)));
+    alert(`Failed to ${action} user:\n\n${err.message}`);
+  } finally {
+    setActionLoading(null);
+  }
+};
 
   // ── Filter members ────────────────────────────────────────────────────
   const filteredMembers = members.filter(member => {

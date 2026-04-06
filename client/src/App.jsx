@@ -7,6 +7,8 @@ import SignupModal from "./User/UserSignup";
 import UserLogin from "./User/UserLogin";
 import BookUpload from "./Admin/BookUpload";
 import BookCatalog from "./User/BookCatalog";
+import BorrowHistory from "./User/BorrowHistory";
+import LibrarianApprovals from "./Admin/Librarianapprovals";
 
 function App() {
   const [showSignup, setShowSignup] = useState(false);
@@ -136,56 +138,168 @@ function App() {
     }
   };
 
- const renderPage = () => {
-  if (authLoading) { /* loading UI */ }
+// In your App.jsx — replace the renderPage function with this:
+
+const renderPage = () => {
+  if (authLoading) return null;
 
   switch (activePage) {
     case "Catalog":
-    case "Home":  // ✅ Handle both labels
-      return <Dashboard user={user} isLoggedIn={isLoggedIn} setActivePage={setActivePage} />;
-    
-    case "Books":  // ✅ Full catalog
-      return <BookCatalog onBack={() => setActivePage("Catalog")} />;
-    
-    case "My Borrows":  // ✅ User's borrowed books
+    case "Home":
+      // ✅ Pass user as currentUser so BookCatalog/BookModal know who is logged in
+      return (
+        <Dashboard
+          user={user}
+          isLoggedIn={isLoggedIn}
+          setActivePage={setActivePage}
+          currentUser={user}        // ← ADD THIS
+        />
+      );
+
+    case "Books":
+      return (
+        <BookCatalog
+          currentUser={user}        // ← already correct
+          onBack={() => setActivePage("Catalog")}
+        />
+      );
+
+    case "My Borrows":
       if (!isLoggedIn) {
-        return <AccessDenied message="Please log in to view your borrows" onAction={() => setShowLogin(true)} actionLabel="Log In" />;
+        return (
+          <AccessDenied
+            message="Please log in to view your borrows"
+            onAction={() => setShowLogin(true)}
+            actionLabel="Log In"
+          />
+        );
       }
-      return <BookCatalog currentUser={user} filter="borrowed" onBack={() => setActivePage("Catalog")} />;
-    
+      return (
+        <BookCatalog
+          currentUser={user}        // ← already correct
+          filter="borrowed"
+          onBack={() => setActivePage("Catalog")}
+        />
+      );
+
+  // ── 1. Add this import at the top of App.jsx with the other imports ──────────
+
+
+// ── 2. Replace the "History" case inside renderPage() with this ──────────────
     case "History":
       if (!isLoggedIn) {
-        return <AccessDenied message="Please log in to access this feature" onAction={() => setShowLogin(true)} actionLabel="Log In" />;
+        return (
+          <AccessDenied
+            message="Please log in to view your borrow history"
+            onAction={() => setShowLogin(true)}
+            actionLabel="Log In"
+          />
+        );
       }
-      return <PagePlaceholder title={activePage} icon="📚" description={`Your ${activePage.toLowerCase()} will appear here`} onBack={() => setActivePage("Catalog")} />;
-    
+      return (
+        <BorrowHistory
+          currentUser={user}
+          onBack={() => setActivePage("Catalog")}
+        />
+      );
+
+    // ── CHANGE 1: Add this import at the top of App.jsx ──────────────────────────
+
+
+// ── CHANGE 2: Replace the "Circulation" case inside renderPage() ──────────────
+// Find:   case "Circulation":
+// Replace the entire case with this:
+
+    case "Circulation":
+      if (!isLoggedIn || user?.role !== "Librarian") {
+        return (
+          <AccessDenied
+            message="Librarian access required"
+            onAction={() => { setLoginRole("Librarian"); setShowLogin(true); }}
+            actionLabel="Log In as Librarian"
+          />
+        );
+      }
+      return (
+        <LibrarianApprovals
+          currentUser={user}
+          onBack={() => setActivePage("Catalog")}
+        />
+      );
+
     case "Members":
       if (!isLoggedIn || user?.role !== "Librarian") {
-        return <AccessDenied message="Librarian access required" onAction={() => { setLoginRole("Librarian"); setShowLogin(true); }} actionLabel="Log In as Librarian" />;
+        return (
+          <AccessDenied
+            message="Librarian access required"
+            onAction={() => { setLoginRole("Librarian"); setShowLogin(true); }}
+            actionLabel="Log In as Librarian"
+          />
+        );
       }
       return <MembersList onBack={() => setActivePage("Catalog")} currentUser={user} />;
-    
+
     case "BookUpload":
       if (!isLoggedIn || user?.role !== "Librarian") {
-        return <AccessDenied message="Librarian access required" onAction={() => { setLoginRole("Librarian"); setShowLogin(true); }} actionLabel="Log In as Librarian" />;
+        return (
+          <AccessDenied
+            message="Librarian access required"
+            onAction={() => { setLoginRole("Librarian"); setShowLogin(true); }}
+            actionLabel="Log In as Librarian"
+          />
+        );
       }
       return <BookUpload currentUser={user} onBack={() => setActivePage("Catalog")} />;
-    
+
     case "Circulation":
+      return <AccessDenied/>
     case "Settings":
       if (!isLoggedIn || user?.role !== "Librarian") {
-        return <AccessDenied message="Librarian access required" onAction={() => { setLoginRole("Librarian"); setShowLogin(true); }} actionLabel="Log In as Librarian" />;
+        return (
+          <AccessDenied
+            message="Librarian access required"
+            onAction={() => { setLoginRole("Librarian"); setShowLogin(true); }}
+            actionLabel="Log In as Librarian"
+          />
+        );
       }
-      return <PagePlaceholder title={activePage} icon="⚙️" description={`${activePage} management console`} onBack={() => setActivePage("Catalog")} />;
-    
+      return (
+        <PagePlaceholder
+          title={activePage}
+          icon="⚙️"
+          description={`${activePage} management console`}
+          onBack={() => setActivePage("Catalog")}
+        />
+      );
+
     case "Profile":
       if (!isLoggedIn || !user) {
-        return <AccessDenied message="Please log in to view your profile" onAction={() => setShowLogin(true)} actionLabel="Log In" />;
+        return (
+          <AccessDenied
+            message="Please log in to view your profile"
+            onAction={() => setShowLogin(true)}
+            actionLabel="Log In"
+          />
+        );
       }
-      return <PagePlaceholder title="My Profile" icon="👤" description={`Manage your account settings, ${user.name}`} onBack={() => setActivePage("Catalog")} />;
-    
+      return (
+        <PagePlaceholder
+          title="My Profile"
+          icon="👤"
+          description={`Manage your account settings, ${user.name}`}
+          onBack={() => setActivePage("Catalog")}
+        />
+      );
+
     default:
-      return <Dashboard user={user} isLoggedIn={isLoggedIn} setActivePage={setActivePage} />;
+      return (
+        <Dashboard
+          user={user}
+          isLoggedIn={isLoggedIn}
+          setActivePage={setActivePage}
+          currentUser={user}        // ← ADD THIS
+        />
+      );
   }
 };
 

@@ -1,6 +1,7 @@
 // Controllers/userController.js
-const User = require("../Models/User");
 const bcrypt = require("bcryptjs");
+const User   = require("../Models/User");
+const jwt    = require("jsonwebtoken");
 
 // ── Middleware: Verify Librarian Role ───────────────────────────────────
 const requireLibrarian = (req, res, next) => {

@@ -1,12 +1,13 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const cors = require("cors");          // ✅ FIX 1: cors must be imported
+const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 
 const bookRoutes = require("./Routes/bookRoutes");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./Routes/userRoutes");
+const circulationRoutes = require("./Routes/CirculationRoutes"); // ← NEW
 
 const app = express();
 const PORT = 5000;
@@ -14,10 +15,9 @@ const PORT = 5000;
 /* ==============================
    🔹 CORS — MUST be first middleware
 ================================= */
-// ✅ FIX 2: cors() takes a config object, not a string
 app.use(cors({
   origin: "http://localhost:5173",
-  credentials: true,                   // needed if you send cookies/auth headers
+  credentials: true,
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
@@ -39,7 +39,6 @@ mongoose
 /* ==============================
    🔹 Static uploads
 ================================= */
-// ✅ FIX 3: declare uploadsDir BEFORE using it
 const uploadsDir = path.join(__dirname, "uploads");
 
 if (!fs.existsSync(uploadsDir)) {
@@ -57,6 +56,7 @@ console.log("📁 Covers dir exists:", fs.existsSync(path.join(uploadsDir, "cove
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/books", bookRoutes);
+app.use("/api/circulation", circulationRoutes); // ← NEW
 
 /* ==============================
    🔹 Health Check
