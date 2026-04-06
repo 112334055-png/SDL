@@ -1,5 +1,8 @@
 // Controllers/bookController.js
 const Book = require("../Models/Book");
+// Add at the top of bookController.js — these are used in updateBook but never imported
+const path = require("path");
+const fs = require("fs");
 
 // ── 🔒 STRICT VALIDATION HELPER (Production-Safe) ──────────────────────────
 
@@ -356,9 +359,20 @@ exports.updateBook = async (req, res) => {
     if (updates.copies !== undefined) book.copiesAvailable = parseInt(updates.copies);
     if (updates.status) book.status = updates.status;
     
-    if (req.file) {
-      book.coverImage = `/uploads/covers/${req.file.filename}`;
-    }
+    // Controllers/bookController.js - In uploadBook, after multer handles the file:
+
+if (req.file) {
+  // ✅ Log absolute path for debugging
+  const absolutePath = path.join(__dirname, "..", "uploads", "covers", req.file.filename);
+  console.log("🖼️ Cover saved:", {
+    relativePath: `/uploads/covers/${req.file.filename}`,
+    absolutePath: absolutePath,
+    exists: fs.existsSync(absolutePath), // ✅ Check if file exists
+    size: fs.existsSync(absolutePath) ? fs.statSync(absolutePath).size : "N/A"
+  });
+  
+  coverImagePath = `/uploads/covers/${req.file.filename}`;
+}
 
     await book.save();
 

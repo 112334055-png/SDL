@@ -6,6 +6,7 @@ import MembersList from "./Admin/MembersList"; // ✅ New import for librarian m
 import SignupModal from "./User/UserSignup";
 import UserLogin from "./User/UserLogin";
 import BookUpload from "./Admin/BookUpload";
+import BookCatalog from "./User/BookCatalog";
 
 function App() {
   const [showSignup, setShowSignup] = useState(false);
@@ -135,154 +136,58 @@ function App() {
     }
   };
 
-  // ✅ Page router – expand this as you add more components
-  const renderPage = () => {
-    // Show loading while checking auth
-    if (authLoading) {
-      return (
-        <div style={{ 
-          minHeight: "calc(100vh - 68px)", 
-          display: "flex", 
-          alignItems: "center", 
-          justifyContent: "center",
-          background: "linear-gradient(180deg, #1c1510 0%, #15100a 100%)",
-          color: "rgba(245,240,232,0.6)",
-          fontFamily: "'DM Sans', sans-serif"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}>
-              <path d="M21 12a9 9 0 1 1-6.22-8.55" />
-            </svg>
-            Loading...
-          </div>
-          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-        </div>
-      );
-    }
+ const renderPage = () => {
+  if (authLoading) { /* loading UI */ }
 
-    switch (activePage) {
-      case "Catalog":
-        return (
-          <Dashboard
-            user={user}
-            isLoggedIn={isLoggedIn}
-            setActivePage={setActivePage}
-          />
-        );
-      
-      case "My Borrows":
-      case "Reservations":
-      case "History":
-        // Member-only pages - redirect guests to login
-        if (!isLoggedIn) {
-          return (
-            <AccessDenied 
-              message="Please log in to access this feature" 
-              onAction={() => setShowLogin(true)}
-              actionLabel="Log In"
-            />
-          );
-        }
-        // Show placeholder for now (replace with real components later)
-        return (
-          <PagePlaceholder 
-            title={activePage} 
-            icon="📚"
-            description={`Your ${activePage.toLowerCase()} will appear here`}
-            onBack={() => setActivePage("Catalog")}
-          />
-        );
-      
-      case "Members":
-        // 🔐 Librarian-only page
-        if (!isLoggedIn) {
-          return (
-            <AccessDenied 
-              message="Librarian access required" 
-              onAction={() => { setLoginRole("Librarian"); setShowLogin(true); }}
-              actionLabel="Log In as Librarian"
-            />
-          );
-        }
-        if (user?.role !== "Librarian") {
-          return (
-            <AccessDenied 
-              message="This feature is only available to librarians" 
-              onAction={() => setActivePage("Catalog")}
-              actionLabel="Return to Dashboard"
-            />
-          );
-        }
-        // ✅ Render the MembersList component for librarians
-        return (
-          <MembersList 
-            onBack={() => setActivePage("Catalog")}
-            currentUser={user}
-            onUserUpdated={(updatedUser) => {
-              // Optional: Handle real-time updates if needed
-              console.log("User updated:", updatedUser);
-            }}
-          />
-        );
-      
-      case "Circulation":
-     case "BookUpload":
-  return (
-    <BookUpload
-      currentUser={user}
-      onBack={() => setActivePage("Catalog")}
-    />
-  );
-      case "Settings":
-        // Librarian-only pages
-        if (!isLoggedIn || user?.role !== "Librarian") {
-          return (
-            <AccessDenied 
-              message="Librarian access required" 
-              onAction={() => { setLoginRole("Librarian"); setShowLogin(true); }}
-              actionLabel="Log In as Librarian"
-            />
-          );
-        }
-        return (
-          <PagePlaceholder 
-            title={activePage} 
-            icon="⚙️"
-            description={`${activePage} management console`}
-            onBack={() => setActivePage("Catalog")}
-          />
-        );
-      
-      case "Profile":
-        if (!isLoggedIn || !user) {
-          return (
-            <AccessDenied 
-              message="Please log in to view your profile" 
-              onAction={() => setShowLogin(true)}
-              actionLabel="Log In"
-            />
-          );
-        }
-        return (
-          <PagePlaceholder 
-            title="My Profile" 
-            icon="👤"
-            description={`Manage your account settings, ${user.name}`}
-            onBack={() => setActivePage("Catalog")}
-          />
-        );
-      
-      default:
-        // Fallback to dashboard for unknown pages
-        return (
-          <Dashboard
-            user={user}
-            isLoggedIn={isLoggedIn}
-            setActivePage={setActivePage}
-          />
-        );
-    }
-  };
+  switch (activePage) {
+    case "Catalog":
+    case "Home":  // ✅ Handle both labels
+      return <Dashboard user={user} isLoggedIn={isLoggedIn} setActivePage={setActivePage} />;
+    
+    case "Books":  // ✅ Full catalog
+      return <BookCatalog onBack={() => setActivePage("Catalog")} />;
+    
+    case "My Borrows":  // ✅ User's borrowed books
+      if (!isLoggedIn) {
+        return <AccessDenied message="Please log in to view your borrows" onAction={() => setShowLogin(true)} actionLabel="Log In" />;
+      }
+      return <BookCatalog currentUser={user} filter="borrowed" onBack={() => setActivePage("Catalog")} />;
+    
+    case "History":
+      if (!isLoggedIn) {
+        return <AccessDenied message="Please log in to access this feature" onAction={() => setShowLogin(true)} actionLabel="Log In" />;
+      }
+      return <PagePlaceholder title={activePage} icon="📚" description={`Your ${activePage.toLowerCase()} will appear here`} onBack={() => setActivePage("Catalog")} />;
+    
+    case "Members":
+      if (!isLoggedIn || user?.role !== "Librarian") {
+        return <AccessDenied message="Librarian access required" onAction={() => { setLoginRole("Librarian"); setShowLogin(true); }} actionLabel="Log In as Librarian" />;
+      }
+      return <MembersList onBack={() => setActivePage("Catalog")} currentUser={user} />;
+    
+    case "BookUpload":
+      if (!isLoggedIn || user?.role !== "Librarian") {
+        return <AccessDenied message="Librarian access required" onAction={() => { setLoginRole("Librarian"); setShowLogin(true); }} actionLabel="Log In as Librarian" />;
+      }
+      return <BookUpload currentUser={user} onBack={() => setActivePage("Catalog")} />;
+    
+    case "Circulation":
+    case "Settings":
+      if (!isLoggedIn || user?.role !== "Librarian") {
+        return <AccessDenied message="Librarian access required" onAction={() => { setLoginRole("Librarian"); setShowLogin(true); }} actionLabel="Log In as Librarian" />;
+      }
+      return <PagePlaceholder title={activePage} icon="⚙️" description={`${activePage} management console`} onBack={() => setActivePage("Catalog")} />;
+    
+    case "Profile":
+      if (!isLoggedIn || !user) {
+        return <AccessDenied message="Please log in to view your profile" onAction={() => setShowLogin(true)} actionLabel="Log In" />;
+      }
+      return <PagePlaceholder title="My Profile" icon="👤" description={`Manage your account settings, ${user.name}`} onBack={() => setActivePage("Catalog")} />;
+    
+    default:
+      return <Dashboard user={user} isLoggedIn={isLoggedIn} setActivePage={setActivePage} />;
+  }
+};
 
   // Show loading spinner while auth is being checked
   if (authLoading) {

@@ -1,41 +1,74 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const cors = require("cors");
+const cors = require("cors");          // ✅ FIX 1: cors must be imported
 const path = require("path");
-const multer = require("multer");
 const fs = require("fs");
+
 const bookRoutes = require("./Routes/bookRoutes");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./Routes/userRoutes");
 
 const app = express();
+const PORT = 5000;
 
 /* ==============================
-   🔹 Middleware
+   🔹 CORS — MUST be first middleware
 ================================= */
-app.use(cors());
-app.use(express.json());
+// ✅ FIX 2: cors() takes a config object, not a string
+app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true,                   // needed if you send cookies/auth headers
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 
 /* ==============================
-   🔹 MongoDB Connection
+   🔹 Body parsers
+================================= */
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/* ==============================
+   🔹 MongoDB
 ================================= */
 mongoose
   .connect("mongodb://127.0.0.1:27017/sdlDB")
   .then(() => console.log("MongoDB Connected ✅"))
-  .catch((err) => console.log("MongoDB connection error:", err));
+  .catch((err) => console.error("MongoDB error:", err));
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+/* ==============================
+   🔹 Static uploads
+================================= */
+// ✅ FIX 3: declare uploadsDir BEFORE using it
+const uploadsDir = path.join(__dirname, "uploads");
 
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log("✅ Created uploads directory");
+}
+
+app.use("/uploads", express.static(uploadsDir));
+console.log("📁 Serving uploads from:", uploadsDir);
+console.log("📁 Covers dir exists:", fs.existsSync(path.join(uploadsDir, "covers")));
+
+/* ==============================
+   🔹 API Routes
+================================= */
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/books", bookRoutes);
-// Health check
-app.get("/", (req, res) => res.json({ message: "Bibliotheca API is running 📚" }));
+
+/* ==============================
+   🔹 Health Check
+================================= */
+app.get("/", (req, res) =>
+  res.json({ message: "Bibliotheca API is running 📚" })
+);
 
 /* ==============================
    🔹 Start Server
 ================================= */
-const PORT = 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🖼️  Test image: http://localhost:${PORT}/uploads/covers/your-image.png`);
 });
