@@ -13,24 +13,28 @@ const {
   cancelRequest,
 } = require("../Controllers/CirculationController");
 
-const { requireAuth, requireLibrarian } = require("../MiddleWare/Auth");
+// ✅ FIXED: Import 'protect' instead of 'requireAuth'
+const { protect, requireLibrarian } = require("../MiddleWare/Auth");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ⚠️  ORDER MATTERS: specific paths MUST come before /:id wildcard
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Member routes ─────────────────────────────────────────────────────────────
-router.post("/request",  requireAuth,          createRequest);   // POST   /api/circulation/request
-router.get( "/my",       requireAuth,          getMyRequests);   // GET    /api/circulation/my
+// ── Member routes (require authentication) ────────────────────────────────────
+// ✅ Use 'protect' for all auth-required routes
+router.post("/request",  protect,          createRequest);   // POST   /api/circulation/request
+router.get( "/my",       protect,          getMyRequests);   // GET    /api/circulation/my
+router.get( "/my-requests", protect,       getMyRequests);   // ✅ Alias used by frontend
 
-// ── Librarian routes (specific named paths — BEFORE /:id) ────────────────────
-router.get(   "/all",         requireLibrarian, getAllRequests);  // GET    /api/circulation/all
-router.patch( "/:id/approve", requireLibrarian, approveRequest); // PATCH  /api/circulation/:id/approve
-router.patch( "/:id/reject",  requireLibrarian, rejectRequest);  // PATCH  /api/circulation/:id/reject
-router.patch( "/:id/return",  requireLibrarian, markReturned);   // PATCH  /api/circulation/:id/return
+// ── Librarian routes (require auth + librarian role) ─────────────────────────
+// ✅ requireLibrarian internally uses protect, so just chain them
+router.get(   "/all",         protect, requireLibrarian, getAllRequests);  // GET    /api/circulation/all
+router.patch( "/:id/approve", protect, requireLibrarian, approveRequest); // PATCH  /api/circulation/:id/approve
+router.patch( "/:id/reject",  protect, requireLibrarian, rejectRequest);  // PATCH  /api/circulation/:id/reject
+router.patch( "/:id/return",  protect, requireLibrarian, markReturned);   // PATCH  /api/circulation/:id/return
 
 // ── Wildcard /:id routes — MUST be LAST ──────────────────────────────────────
-router.get(   "/:id", requireAuth, getRequestById); // GET    /api/circulation/:id
-router.delete("/:id", requireAuth, cancelRequest);  // DELETE /api/circulation/:id
+router.get(   "/:id", protect, getRequestById); // GET    /api/circulation/:id
+router.delete("/:id", protect, cancelRequest);  // DELETE /api/circulation/:id
 
 module.exports = router;

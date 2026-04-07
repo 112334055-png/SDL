@@ -1,3 +1,5 @@
+require("dotenv").config();  // ✅ MUST be first
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -64,6 +66,14 @@ app.use("/api/circulation", circulationRoutes); // ← NEW
 app.get("/", (req, res) =>
   res.json({ message: "Bibliotheca API is running 📚" })
 );
+app.use((err, req, res, next) => {
+  console.error("🔥 ERROR:", err.message);
+
+  res.status(500).json({
+    success: false,
+    message: err.message || "Internal Server Error",
+  });
+});
 
 /* ==============================
    🔹 Start Server

@@ -486,34 +486,167 @@ const daysBetween = (from, to) => {
 };
 
 const apiFetch = async (url, options = {}) => {
-  const res = await fetch(`${API_BASE}${url}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...options.headers },
-    ...options,
+  const token = localStorage.getItem("token");
+  
+  // ✅ DEBUG: Log full request details
+  console.log("🔐 apiFetch called:", {
+    url: `${API_BASE}${url}`,
+    hasToken: !!token,
+    tokenPreview: token ? token.substring(0, 40) + "..." : null,
+    method: options.method || "GET",
+    body: options.body ? JSON.parse(options.body) : undefined,
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
-  return data;
+  
+  try {
+    const res = await fetch(`${API_BASE}${url}`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+      ...options,
+    });
+    
+    // ✅ DEBUG: Log response metadata
+    console.log("📡 apiFetch response:", {
+      status: res.status,
+      statusText: res.statusText,
+      ok: res.ok,
+      contentType: res.headers.get("content-type"),
+    });
+    
+    // ✅ Parse response based on content type
+    const contentType = res.headers.get("content-type");
+    let data;
+    
+    if (contentType && contentType.includes("application/json")) {
+      data = await res.json();
+      console.log("📦 apiFetch JSON data:", data);
+    } else {
+      const text = await res.text();
+      console.log("📦 apiFetch non-JSON response:", text.substring(0, 200));
+      data = { message: text };
+    }
+    
+    // ✅ Throw error with full details
+    if (!res.ok) {
+      const errorMsg = data?.message || data?.error || `HTTP ${res.status}`;
+      console.error("❌ apiFetch error response:", {
+        status: res.status,
+        message: errorMsg,
+        fullData: data,
+        url: `${API_BASE}${url}`,
+      });
+      throw new Error(errorMsg);
+    }
+    
+    return data;
+  } catch (err) {
+    // ✅ DEBUG: Log network/other errors
+    console.error("❌ apiFetch network/error:", {
+      message: err.message,
+      name: err.name,
+      stack: err.stack?.split("\n")[0],
+      url: `${API_BASE}${url}`,
+    });
+    throw err;
+  }
 };
 
 /* ─────────────────────────────────────────────
    BOOK DETAIL MODAL  (member-side)
 ───────────────────────────────────────────── */
+/* ─────────────────────────────────────────────
+   BOOK DETAIL MODAL  (member-side) - FIXED
+───────────────────────────────────────────── */
 function BookModal({ book, onClose, currentUser }) {
-  const [step, setStep] = useState("detail"); // "detail" | "date" | "pending" | "error"
+  const [step, setStep] = useState("detail");
   const [returnDate, setReturnDate] = useState("");
   const [dateError, setDateError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [requestRecord, setRequestRecord] = useState(null);
   const [apiError, setApiError] = useState("");
+  const [existingRequest, setExistingRequest] = useState(null);
+  const [checkingRequest, setCheckingRequest] = useState(true);
   const dateInputRef = useRef(null);
-
+  
   const coverUrl = getCoverUrl(book.coverImage);
   const isAvailable = book.copiesAvailable > 0;
 
   const minDate = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split("T")[0]; })();
   const maxDate = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().split("T")[0]; })();
 
+
+
+// BookCatalog.jsx - BookModal component
+
+useEffect(() => {
+  if (!currentUser) {
+    setCheckingRequest(false);
+    return;
+  }
+  
+  const userId = currentUser.id || currentUser._id;
+  if (!userId) {
+    setCheckingRequest(false);
+    return;
+  }
+  
+  let cancelled = false;
+  
+  const checkExisting = async () => {
+    try {
+// ✅ CORRECT - backend gets userId from JWT token via req.user
+const data = await apiFetch("/api/circulation/my-requests?status=approved");
+      if (cancelled) return;
+      
+      const records = data.data || [];
+      
+      // ✅ Get target book ID as clean string
+      const targetBookId = String(book.id || book._id || "").trim();
+      
+      console.log("🔍 Matching debug:", {
+        targetBookId,
+        recordsCount: records.length,
+        firstRecord: records[0] ? {
+          id: records[0]._id,
+          status: records[0].status,
+          bookType: typeof records[0].book,
+          bookValue: records[0].book,
+        } : null,
+      });
+      
+    const match = records.find(r => {
+  const rBookId = String(r.book?._id || r.book || "").trim();
+  const targetBookId = String(book.id || book._id || "").trim();
+  return rBookId === targetBookId && (r.status === "pending" || r.status === "approved");
+});
+
+      if (!cancelled) {
+        console.log("🎯 Match result:", {
+          found: !!match,
+          status: match?.status,
+          existingRequest: match ? { _id: match._id, status: match.status } : null,
+        });
+        setExistingRequest(match || null);
+      }
+    } catch (err) {
+      if (!cancelled) {
+        console.warn("⚠️ checkExisting error:", err.message);
+        setExistingRequest(null);
+      }
+    } finally {
+      if (!cancelled) {
+        setCheckingRequest(false);
+      }
+    }
+  };
+  
+  checkExisting();
+  return () => { cancelled = true; };
+  
+}, [book.id, book._id, currentUser?.id, currentUser?._id]);
   useEffect(() => {
     if (step === "date") setTimeout(() => dateInputRef.current?.focus(), 80);
   }, [step]);
@@ -536,26 +669,101 @@ function BookModal({ book, onClose, currentUser }) {
     if (dateError) setDateError(validateDate(e.target.value));
   };
 
-  const handleSubmitRequest = async () => {
-    const err = validateDate(returnDate);
-    if (err) { setDateError(err); return; }
-    setSubmitting(true);
-    setApiError("");
-    try {
-      const data = await apiFetch("/api/circulation/request", {
-        method: "POST",
-        body: JSON.stringify({
-          bookId: book.id || book._id,
-          requestedReturnDate: returnDate,
-        }),
-      });
-      setRequestRecord(data.data);
-      setStep("pending");
-    } catch (err) {
+ const handleSubmitRequest = async () => {
+  const err = validateDate(returnDate);
+  if (err) { setDateError(err); return; }
+  
+  setSubmitting(true);
+  setApiError("");
+  
+  try {
+    const data = await apiFetch("/api/circulation/request", {
+      method: "POST",
+      body: JSON.stringify({
+        bookId: book.id || book._id,
+        requestedReturnDate: returnDate,
+      }),
+    });
+    
+    setRequestRecord(data.data);
+    setExistingRequest(data.data); // Update local state
+    setStep("pending");
+    
+  } catch (err) {
+    // ✅ Handle 409 Conflict (already borrowed)
+    if (err.message?.includes("already") || err.message?.includes("checked out")) {
+      // ✅ Update state to disable button immediately
+      setExistingRequest({ status: "approved", book: book.id || book._id });
+      setApiError("This book is already in your borrowed list.");
+    } else {
       setApiError(err.message);
-    } finally {
-      setSubmitting(false);
     }
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+  // ✅ FIXED: Button state logic
+  const isAlreadyBorrowed = existingRequest?.status === "approved";
+  const hasPendingRequest = existingRequest?.status === "pending";
+  
+  const proceedDisabled =
+    !isAvailable ||                    // Book out of stock
+    !currentUser ||                    // Not logged in
+    checkingRequest ||                 // Still checking API
+    isAlreadyBorrowed ||               // ✅ Already borrowed (APPROVED)
+    hasPendingRequest;                 // ✅ Already has pending request
+ 
+  const proceedLabel = (() => {
+    if (!currentUser) return "Login to Borrow";
+    if (!isAvailable) return "Currently Unavailable";
+    if (checkingRequest) return "Checking…";
+    if (isAlreadyBorrowed) return "✓ Already Borrowed";  // ✅ Clear message
+    if (hasPendingRequest) return "⏳ Request Pending";   // ✅ Clear message
+    return "Proceed to Borrow";
+  })();
+
+  // Debug: Log button state on every render
+console.log("🎨 Button render:", {
+  isAvailable,
+  currentUser: !!currentUser,
+  checkingRequest,
+  isAlreadyBorrowed: existingRequest?.status === "approved",
+  hasPendingRequest: existingRequest?.status === "pending",
+  proceedDisabled,
+  proceedLabel,
+});
+
+  // ✅ Show appropriate banner when book is already borrowed
+  const renderStatusBanner = () => {
+    if (isAlreadyBorrowed) {
+      return (
+        <div className="bm-info-banner info" style={{ marginTop: -8 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          <span>
+            You have this book checked out. 
+            <strong style={{ color: "#5fdbb0", marginLeft: 4 }}>
+              Return by {formatDate(existingRequest.requestedReturnDate)}
+            </strong>
+          </span>
+        </div>
+      );
+    }
+    if (hasPendingRequest) {
+      return (
+        <div className="bm-info-banner warn" style={{ marginTop: -8 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span>Your borrow request is pending librarian approval.</span>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -629,19 +837,23 @@ function BookModal({ book, onClose, currentUser }) {
                   </div>
                 )}
 
+                {/* ✅ Status banner for borrowed/pending */}
+                {renderStatusBanner()}
+
                 <button
                   className="bm-proceed-btn"
-                  onClick={() => setStep("date")}
-                  disabled={!isAvailable || !currentUser}
+                  onClick={() => !proceedDisabled && setStep("date")}
+                  disabled={proceedDisabled}
+                  title={proceedDisabled ? proceedLabel : undefined}
                 >
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
                     <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
                   </svg>
-                  {!currentUser ? "Login to Borrow" : isAvailable ? "Proceed to Borrow" : "Currently Unavailable"}
+                  {proceedLabel}
                 </button>
 
-                {!isAvailable && (
+                {!isAvailable && !existingRequest && (
                   <p style={{ textAlign: "center", fontSize: "12px", color: "rgba(245,240,232,0.3)", fontFamily: "'DM Sans',sans-serif", marginTop: -8 }}>
                     All copies are currently checked out.
                   </p>
@@ -1062,146 +1274,216 @@ export function LibrarianApprovals({ currentUser }) {
   );
 }
 
-/* ─────────────────────────────────────────────
-   MAIN CATALOG COMPONENT
-───────────────────────────────────────────── */
+
 export default function BookCatalog({ onSelectBook, onBack, currentUser, filter = "all" }) {
-  const [books, setBooks]           = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState(null);
-  const [page, setPage]             = useState(1);
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [search, setSearch]         = useState("");
-  const [genre, setGenre]           = useState("All");
-  const [sort, setSort]             = useState("newest");
+  const [search, setSearch] = useState("");
+  const [genre, setGenre] = useState("All");
+  const [sort, setSort] = useState("newest");
   const [selectedBook, setSelectedBook] = useState(null);
 
+  // ✅ Define fetchBooks FIRST, before any useEffects
   const fetchBooks = async () => {
-    setLoading(true); setError(null);
+    console.log("🔍 fetchBooks called:", { 
+      filter, 
+      currentUser: currentUser ? { id: currentUser.id, _id: currentUser._id, name: currentUser.name } : null 
+    });
+    
+    setLoading(true); 
+    setError(null);
+    
     try {
-      const params = new URLSearchParams({ page, limit: 12, query: search, genre: genre === "All" ? "" : genre, sort });
-      if (filter === "borrowed" && currentUser?.id) params.append("userId", currentUser.id);
-      const res  = await fetch(`${API_BASE}/api/books?${params.toString()}`);
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.message || `Failed: ${res.status}`);
-      setBooks((data.data || []).map((b) => ({
-        id: b._id || b.id, title: b.title, author: b.author, isbn: b.isbn,
-        genre: b.genre, publicationYear: b.publicationYear,
-        publisher: b.publisher || "Unknown", description: b.description || "",
-        copiesAvailable: b.copiesAvailable || 0, coverImage: b.coverImage || null,
-        status: b.copiesAvailable > 0 ? "Available" : "Out of Stock",
-      })));
-      setTotalPages(data.totalPages || 1);
-    } catch (err) { setError(err.message); }
-    finally { setLoading(false); }
+      if (filter === "borrowed") {
+        // 🔹 Get user ID - try both formats
+        const userId = currentUser?.id || currentUser?._id;
+        
+        if (!userId) {
+          console.log("⏳ No userId yet, waiting for currentUser to load...");
+          setBooks([]);
+          setTotalPages(1);
+          setLoading(false);
+          return;
+        }
+        
+        console.log("✅ Fetching borrowed books for userId:", userId);
+        
+        // 🔹 Fetch user's approved borrow requests
+const data = await apiFetch("/api/circulation/my");
+const approvedOnly = { ...data, data: (data.data || []).filter(r => r.status === "approved") };
+
+        
+        // 🔹 Transform to book-like objects
+        const borrowedBooks = (data.data || []).map(record => {
+          console.log("📚 Mapping record:", {
+            recordId: record._id,
+            bookValue: record.book,
+            bookType: typeof record.book,
+          });
+          
+          return {
+            id: record.book?._id || record.book?.id || record.book,
+            title: record.book?.title || "Unknown Book",
+            author: record.book?.author || "Unknown",
+            isbn: record.book?.isbn || "",
+            genre: record.book?.genre || "",
+            publicationYear: record.book?.publicationYear || "",
+            publisher: record.book?.publisher || "Unknown",
+            description: record.book?.description || "",
+            copiesAvailable: record.book?.copiesAvailable || 0,
+            coverImage: record.book?.coverImage || null,
+            status: "Borrowed",
+            
+            // ✅ Borrow-specific fields
+            borrowId: record._id,
+            requestedReturnDate: record.requestedReturnDate,
+            actualReturnDate: record.actualReturnDate,
+            actionNote: record.actionNote,
+            borrowedAt: record.createdAt,
+            approvedAt: record.actionAt,
+          };
+        });
+        
+        console.log("✅ Borrowed books loaded:", borrowedBooks.length);
+        setBooks(borrowedBooks);
+        setTotalPages(1);
+        
+      } else {
+        // 🔹 Normal catalog fetch
+        const params = new URLSearchParams({ 
+          page, 
+          limit: 12, 
+          query: search, 
+          genre: genre === "All" ? "" : genre, 
+          sort 
+        });
+        
+        const res = await fetch(`${API_BASE}/api/books?${params.toString()}`);
+        const data = await res.json();
+        
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || `Failed: ${res.status}`);
+        }
+        
+        setBooks((data.data || []).map((b) => ({
+          id: b._id || b.id, 
+          title: b.title, 
+          author: b.author, 
+          isbn: b.isbn,
+          genre: b.genre, 
+          publicationYear: b.publicationYear,
+          publisher: b.publisher || "Unknown", 
+          description: b.description || "",
+          copiesAvailable: b.copiesAvailable || 0, 
+          coverImage: b.coverImage || null,
+          status: b.copiesAvailable > 0 ? "Available" : "Out of Stock",
+        })));
+        setTotalPages(data.totalPages || 1);
+      }
+      
+    } catch (err) { 
+      console.error("❌ Fetch error:", err);
+      
+      if (filter === "borrowed") {
+        setBooks([]);
+        setError("Could not load your borrowed books. Please try again.");
+      } else {
+        setError(err.message);
+      }
+    } finally { 
+      setLoading(false); 
+    }
   };
 
-  useEffect(() => { fetchBooks(); }, [page, genre, sort, filter]);
+  // ✅ 1. Fetch books when filter/search/sort/page changes
+  useEffect(() => {
+    fetchBooks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, genre, sort, filter, search]);
+
+  // ✅ 2. Debounced search
   useEffect(() => {
     if (search.trim().length >= 2 || search === "") {
-      const t = setTimeout(() => { setPage(1); fetchBooks(); }, 400);
+      const t = setTimeout(() => { 
+        setPage(1); 
+        fetchBooks(); 
+      }, 400);
       return () => clearTimeout(t);
     }
   }, [search]);
 
+  // ✅ 3. CRITICAL: Re-fetch borrowed books when currentUser ID becomes available
+  useEffect(() => {
+    if (filter === "borrowed") {
+      const userId = currentUser?.id || currentUser?._id;
+      if (userId) {
+        console.log("🔄 currentUser ID ready, fetching borrowed books...");
+        fetchBooks();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, currentUser?.id, currentUser?._id]);
+
   return (
     <>
       <div style={{ padding: "24px", background: "linear-gradient(180deg, #1c1510 0%, #15100a 100%)", minHeight: "calc(100vh - 68px)", fontFamily: "'DM Sans', sans-serif", color: "#f5f0e8" }}>
-        {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "24px", margin: 0 }}>
-            {filter === "borrowed" ? "📖 My Borrows" : "📚 Library Catalog"}
-          </h1>
-          {onBack && (
-            <button onClick={onBack} style={{ background: "transparent", border: "1px solid rgba(184,134,11,0.3)", color: "#f5f0e8", padding: "8px 14px", borderRadius: "8px", cursor: "pointer" }}>
-              ← Back
-            </button>
-          )}
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "24px", margin: 0 }}>{filter === "borrowed" ? "📖 My Borrows" : "📚 Library Catalog"}</h1>
+          {onBack && (<button onClick={onBack} style={{ background: "transparent", border: "1px solid rgba(184,134,11,0.3)", color: "#f5f0e8", padding: "8px 14px", borderRadius: "8px", cursor: "pointer" }}>← Back</button>)}
         </div>
-
-        {/* Filters */}
-        <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap" }}>
-          <input type="text" placeholder="Search books, authors, ISBN..." value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ flex: "1", minWidth: "200px", padding: "10px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(184,134,11,0.2)", borderRadius: "8px", color: "#f5f0e8", outline: "none" }} />
-          <select value={genre} onChange={(e) => { setGenre(e.target.value); setPage(1); }}
-            style={{ padding: "10px 14px", background: "#2a2218", border: "1px solid rgba(184,134,11,0.2)", borderRadius: "8px", color: "#f5f0e8", cursor: "pointer" }}>
-            {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
-          </select>
-          <select value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }}
-            style={{ padding: "10px 14px", background: "#2a2218", border: "1px solid rgba(184,134,11,0.2)", borderRadius: "8px", color: "#f5f0e8", cursor: "pointer" }}>
-            <option value="newest">Newest First</option>
-            <option value="title">Title A-Z</option>
-            <option value="author">Author A-Z</option>
-            <option value="year">Year (Newest)</option>
-          </select>
-        </div>
-
+        {filter !== "borrowed" && (
+          <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap" }}>
+            <input type="text" placeholder="Search books, authors, ISBN..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: "1", minWidth: "200px", padding: "10px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(184,134,11,0.2)", borderRadius: "8px", color: "#f5f0e8", outline: "none" }} />
+            <select value={genre} onChange={(e) => { setGenre(e.target.value); setPage(1); }} style={{ padding: "10px 14px", background: "#2a2218", border: "1px solid rgba(184,134,11,0.2)", borderRadius: "8px", color: "#f5f0e8", cursor: "pointer" }}>{GENRES.map((g) => <option key={g} value={g}>{g}</option>)}</select>
+            <select value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }} style={{ padding: "10px 14px", background: "#2a2218", border: "1px solid rgba(184,134,11,0.2)", borderRadius: "8px", color: "#f5f0e8", cursor: "pointer" }}><option value="newest">Newest First</option><option value="title">Title A-Z</option><option value="author">Author A-Z</option><option value="year">Year (Newest)</option></select>
+          </div>
+        )}
+        {filter === "borrowed" && (<div style={{ marginBottom: "20px", color: "rgba(245,240,232,0.4)", fontSize: "13px" }}>Showing your borrowed books • Sorted by borrow date</div>)}
         {error && <div style={{ background: "rgba(220,60,40,0.15)", padding: "12px", borderRadius: "8px", marginBottom: "16px", color: "#ff8a75" }}>⚠️ {error}</div>}
         {loading && !error && <div style={{ textAlign: "center", padding: "40px", color: "rgba(245,240,232,0.5)" }}>Loading catalog…</div>}
-
         {!loading && !error && (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "20px", marginBottom: "24px" }}>
               {books.length > 0 ? books.map((book) => {
                 const coverUrl = getCoverUrl(book.coverImage);
+                const isBorrowedView = filter === "borrowed";
                 return (
-                  <div key={book.id}
-                    onClick={() => setSelectedBook(book)}
-                    style={{ background: "#2a2218", border: "1px solid rgba(184,134,11,0.2)", borderRadius: "12px", overflow: "hidden", cursor: "pointer", transition: "transform 0.2s, box-shadow 0.2s" }}
-                    onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.45)"; }}
-                    onMouseOut={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}
-                  >
+                  <div key={book.id || book.borrowId} onClick={() => !isBorrowedView && setSelectedBook(book)} style={{ background: "#2a2218", border: "1px solid rgba(184,134,11,0.2)", borderRadius: "12px", overflow: "hidden", cursor: isBorrowedView ? "default" : "pointer", transition: "transform 0.2s, box-shadow 0.2s", opacity: isBorrowedView ? 0.95 : 1 }} onMouseOver={(e) => { if (!isBorrowedView) { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.45)"; } }} onMouseOut={(e) => { if (!isBorrowedView) { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; } }}>
                     <div style={{ height: "240px", background: "rgba(255,255,255,0.04)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                      {coverUrl ? (
-                        <img src={coverUrl} alt={book.title}
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                          onError={(e) => { e.target.style.display = "none"; }} />
-                      ) : null}
-                      <div style={{ position: coverUrl ? "absolute" : "relative", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                        <span style={{ fontSize: "36px", color: "rgba(245,240,232,0.15)" }}>📖</span>
-                        <span style={{ fontSize: "11px", color: "rgba(245,240,232,0.2)", fontFamily: "'DM Sans',sans-serif" }}>No cover</span>
-                      </div>
+                      {coverUrl ? (<img src={coverUrl} alt={book.title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} onError={(e) => { e.target.style.display = "none"; }} />) : null}
+                      <div style={{ position: coverUrl ? "absolute" : "relative", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "8px" }}><span style={{ fontSize: "36px", color: "rgba(245,240,232,0.15)" }}>📖</span><span style={{ fontSize: "11px", color: "rgba(245,240,232,0.2)", fontFamily: "'DM Sans',sans-serif" }}>No cover</span></div>
+                      {isBorrowedView && (<div style={{ position: "absolute", top: 10, right: 10, padding: "4px 10px", background: "rgba(58,170,138,0.9)", color: "#fff", borderRadius: "12px", fontSize: "10px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.05em" }}>Borrowed</div>)}
                     </div>
                     <div style={{ padding: "14px" }}>
                       <div style={{ fontWeight: 600, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "14px" }}>{book.title}</div>
                       <div style={{ fontSize: "12px", color: "rgba(245,240,232,0.5)", marginBottom: 8 }}>by {book.author}</div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "12px", background: book.status === "Available" ? "rgba(58,170,138,0.15)" : "rgba(220,60,40,0.15)", color: book.status === "Available" ? "#5fdbb0" : "#ff8a75" }}>
-                          {book.status}
-                        </span>
-                        <span style={{ fontSize: "11px", color: "rgba(245,240,232,0.35)" }}>{book.genre}</span>
-                      </div>
+                      {isBorrowedView ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "12px", background: "rgba(58,170,138,0.15)", color: "#5fdbb0", fontWeight: "500" }}>✓ Borrowed</span></div>
+                          <div style={{ fontSize: "11px", color: "rgba(245,240,232,0.4)" }}>📅 Return by: <strong style={{ color: "#f5f0e8" }}>{formatDate(book.requestedReturnDate)}</strong></div>
+                          {book.actionNote && (<div style={{ fontSize: "10px", color: "rgba(245,240,232,0.3)", fontStyle: "italic" }}>"{book.actionNote}"</div>)}
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "12px", background: book.status === "Available" ? "rgba(58,170,138,0.15)" : "rgba(220,60,40,0.15)", color: book.status === "Available" ? "#5fdbb0" : "#ff8a75" }}>{book.status}</span><span style={{ fontSize: "11px", color: "rgba(245,240,232,0.35)" }}>{book.genre}</span></div>
+                      )}
                     </div>
                   </div>
                 );
               }) : (
                 <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "40px", color: "rgba(245,240,232,0.5)" }}>
-                  🔍 No books found
-                  {search && <div style={{ marginTop: 8, fontSize: 12 }}><button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#f0c040", cursor: "pointer" }}>Clear search</button></div>}
+                  {filter === "borrowed" ? "📭 You haven't borrowed any books yet" : "🔍 No books found"}
+                  {search && filter !== "borrowed" && (<div style={{ marginTop: 8, fontSize: 12 }}><button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#f0c040", cursor: "pointer" }}>Clear search</button></div>)}
                 </div>
               )}
             </div>
-
-            {totalPages > 1 && (
-              <div style={{ display: "flex", justifyContent: "center", gap: "8px" }}>
-                <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} style={{ padding: "8px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(184,134,11,0.2)", borderRadius: "6px", color: "#f5f0e8", cursor: page <= 1 ? "not-allowed" : "pointer", opacity: page <= 1 ? 0.5 : 1 }}>← Prev</button>
-                <span style={{ padding: "8px 14px", background: "rgba(184,134,11,0.15)", borderRadius: "6px" }}>Page {page} of {totalPages}</span>
-                <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} style={{ padding: "8px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(184,134,11,0.2)", borderRadius: "6px", color: "#f5f0e8", cursor: page >= totalPages ? "not-allowed" : "pointer", opacity: page >= totalPages ? 0.5 : 1 }}>Next →</button>
-              </div>
-            )}
+            {totalPages > 1 && (<div style={{ display: "flex", justifyContent: "center", gap: "8px" }}><button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} style={{ padding: "8px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(184,134,11,0.2)", borderRadius: "6px", color: "#f5f0e8", cursor: page <= 1 ? "not-allowed" : "pointer", opacity: page <= 1 ? 0.5 : 1 }}>← Prev</button><span style={{ padding: "8px 14px", background: "rgba(184,134,11,0.15)", borderRadius: "6px" }}>Page {page} of {totalPages}</span><button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} style={{ padding: "8px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(184,134,11,0.2)", borderRadius: "6px", color: "#f5f0e8", cursor: page >= totalPages ? "not-allowed" : "pointer", opacity: page >= totalPages ? 0.5 : 1 }}>Next →</button></div>)}
           </>
         )}
       </div>
-
-      {/* Book modal */}
-      {selectedBook && (
-        <BookModal
-          book={selectedBook}
-          currentUser={currentUser}
-          onClose={() => setSelectedBook(null)}
-        />
-      )}
+      {selectedBook && (<BookModal book={selectedBook} currentUser={currentUser} onClose={() => setSelectedBook(null)} />)}
     </>
   );
 }

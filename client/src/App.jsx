@@ -35,25 +35,29 @@ function App() {
         if (token && storedUser) {
           const parsedUser = JSON.parse(storedUser);
           
-          // Verify token with backend (optional but recommended for production)
-          if (parsedUser?.role && parsedUser?.name) {
-            // Optional: Verify token is still valid
-            // const verifyRes = await fetch("/api/auth/verify", {
-            //   headers: { "Authorization": `Bearer ${token}` }
-            // });
-            // if (verifyRes.ok) {
-            setIsLoggedIn(true);
+          // ✅ FIX: Ensure IDs are synced (handles old cached users missing 'id')
+          if (parsedUser) {
+            if (!parsedUser.id && parsedUser._id) parsedUser.id = parsedUser._id;
+            if (!parsedUser._id && parsedUser.id) parsedUser._id = parsedUser.id;
+          }
+
+parsedUser._id = parsedUser._id || parsedUser.id;
+parsedUser.id = parsedUser.id || parsedUser._id;
+
+if (parsedUser?.role && parsedUser?.email) {
+              setIsLoggedIn(true);
             setUser(parsedUser);
-            // }
+          } else {
+             // If stored user is invalid, clear it
+             localStorage.removeItem("user");
+             localStorage.removeItem("token");
           }
         }
       } catch (e) {
         console.error("Auth restoration failed:", e);
-        // Clear corrupted data
         localStorage.removeItem("token");
         localStorage.removeItem("user");
       } finally {
-        // Always stop loading, even if auth fails
         setAuthLoading(false);
       }
     };
@@ -61,33 +65,25 @@ function App() {
     checkAuth();
   }, []);
 
-  // ✅ Handle login success
-  const handleLoginSuccess = (info) => {
-    const userData = {
-      name: info.name,
-      email: info.email,
-      initials: info.name
-        ? info.name
-            .split(" ")
-            .map((w) => w[0])
-            .join("")
-            .toUpperCase()
-            .slice(0, 2)
-        : "?",
-      role: info.role, // "Member" | "Librarian"
-    };
+const handleLoginSuccess = (info) => {
+  const userObj = info.user || info.user?.user;
 
-    setUser(userData);
-    setIsLoggedIn(true);
-    setShowLogin(false);
-    setActivePage("Catalog"); // ✅ Reset to dashboard after login
-
-    // ✅ Save to localStorage
-    localStorage.setItem("user", JSON.stringify(userData));
-    if (info.token) {
-      localStorage.setItem("token", info.token);
-    }
+  const userData = {
+    _id: userObj._id || userObj.id,
+    id: userObj._id || userObj.id,
+    name: userObj.name || `${userObj.firstName} ${userObj.lastName}`,
+    email: userObj.email,
+    role: userObj.role,
   };
+
+  setUser(userData);
+  setIsLoggedIn(true);
+  setShowLogin(false);
+  setActivePage("Catalog");
+
+  localStorage.setItem("user", JSON.stringify(userData));
+  if (info.token) localStorage.setItem("token", info.token);
+};
 
   // ✅ Logout
   const handleLogout = async () => {
@@ -137,7 +133,10 @@ function App() {
       alert("Network error. Please check your connection.");
     }
   };
-
+// Check what's in localStorage
+console.log("👤 Stored user object:", user);
+console.log("✅ Has id?", !!user?.id);
+console.log("✅ Has _id?", !!user?._id);
 // In your App.jsx — replace the renderPage function with this:
 
 const renderPage = () => {
@@ -165,27 +164,38 @@ const renderPage = () => {
       );
 
     case "My Borrows":
-      if (!isLoggedIn) {
-        return (
-          <AccessDenied
-            message="Please log in to view your borrows"
-            onAction={() => setShowLogin(true)}
-            actionLabel="Log In"
-          />
-        );
-      }
-      return (
-        <BookCatalog
-          currentUser={user}        // ← already correct
-          filter="borrowed"
-          onBack={() => setActivePage("Catalog")}
-        />
-      );
+  if (!isLoggedIn) {
+    return (
+      <AccessDenied
+        message="Please log in to view your borrows"
+        onAction={() => setShowLogin(true)}
+        actionLabel="Log In"
+      />
+    );
+  }
+  // ✅ Show loading if user ID not ready
+  if (!user?.id && !user?._id) {
+    return (
+      <div style={{ 
+        padding: "40px", 
+        textAlign: "center", 
+        color: "rgba(245,240,232,0.6)",
+        fontFamily: "'DM Sans', sans-serif"
+      }}>
+        Loading your borrowed books...
+      </div>
+    );
+  }
+  return (
+    <BookCatalog
+      currentUser={user}
+      filter="borrowed"
+      onBack={() => setActivePage("Catalog")}
+    />
+  );
+  
 
-  // ── 1. Add this import at the top of App.jsx with the other imports ──────────
-
-
-// ── 2. Replace the "History" case inside renderPage() with this ──────────────
+ 
     case "History":
       if (!isLoggedIn) {
         return (
@@ -210,7 +220,7 @@ const renderPage = () => {
 // Find:   case "Circulation":
 // Replace the entire case with this:
 
-    case "Circulation":
+    case "Approval":
       if (!isLoggedIn || user?.role !== "Librarian") {
         return (
           <AccessDenied
@@ -251,9 +261,7 @@ const renderPage = () => {
       }
       return <BookUpload currentUser={user} onBack={() => setActivePage("Catalog")} />;
 
-    case "Circulation":
-      return <AccessDenied/>
-    case "Settings":
+   
       if (!isLoggedIn || user?.role !== "Librarian") {
         return (
           <AccessDenied

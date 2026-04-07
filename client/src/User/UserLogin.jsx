@@ -546,48 +546,52 @@ const [submitting, setSubmitting]   = useState(false); // ✅ ADD THIS
     setGlobalError("");
   };
 
-// ── In UserLogin.jsx — replace handleSubmit's fetch call with this ────────────
 
 const handleSubmit = async () => {
   const newTouched = Object.fromEntries(activeFields.map((k) => [k, true]));
   const newErrors  = Object.fromEntries(activeFields.map((k) => [k, validate(k, form[k])]));
+
   setTouched((t) => ({ ...t, ...newTouched }));
-  setErrors((er)  => ({ ...er,  ...newErrors  }));
+  setErrors((er) => ({ ...er, ...newErrors }));
+
   if (Object.values(newErrors).some((e) => e)) return;
 
   setSubmitting(true);
   setGlobalError("");
 
   try {
-    const res  = await fetch("http://localhost:5000/api/auth/login", {
-      method:  "POST",
+    const res = await fetch("http://localhost:5000/api/auth/login", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        mode:    mode,           // "member" | "librarian"
-        email:   form.email,
-        staffId: form.staffId,
+      body: JSON.stringify({
+        mode,
         password: form.password,
+        ...(mode === "member"
+          ? { email: form.email }
+          : { staffId: form.staffId }),
       }),
     });
 
     const data = await res.json();
+
+    // ✅ NOW logs are valid
+    console.log("LOGIN RESPONSE:", data);
+    console.log("USER ID:", data?.user?._id, data?.user?.id);
 
     if (!res.ok) {
       setGlobalError(data.message || "Login failed");
       return;
     }
 
-    // ✅ Save token for Authorization headers in future requests
     localStorage.setItem("token", data.token);
-    localStorage.setItem("user",  JSON.stringify(data.user));
+    localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("role", data.user.role);
 
     setSubmitted(true);
-    onLoginSuccess?.({
-      name:    data.user.name,
-      email:   data.user.email,
-      staffId: data.user.staffId,
-      role:    data.user.role,
-      token:   data.token,
+
+    onLoginSuccess({
+      user: data.user,
+      token: data.token,
     });
 
   } catch (err) {
@@ -598,20 +602,18 @@ const handleSubmit = async () => {
 };
 
 
-// ── In LibrarianApprovals.jsx — the API helper already reads the token ────────
-// Make sure your apiFetch / API helper includes the Authorization header:
-
 const API = async (url, options = {}) => {
   const token = localStorage.getItem("token");
-  const res = await fetch(`http://localhost:5000${url}`, {
-    credentials: "include",
+
+  const res = await fetch(url, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),  // ✅ this line
-      ...options.headers,
-    },
-    ...options,
+      Authorization: token ? `Bearer ${token}` : "",
+      ...(options.headers || {})
+    }
   });
+
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
   return data;

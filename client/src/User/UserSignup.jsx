@@ -530,8 +530,11 @@ function UserSignup({ onClose, onLogin }) {
     Object.keys(validators).every((k) => !validate(k, k === "confirmPassword" ? form.confirmPassword : form[k])) &&
     agreed;
 
- const handleSubmit = async () => {
+const handleSubmit = async () => {
+  // ✅ Mark all fields as touched for validation
   const allTouched = Object.fromEntries(Object.keys(form).map((k) => [k, true]));
+  
+  // ✅ Validate all fields
   const allErrors = Object.fromEntries(
     Object.keys(validators).map((k) => [
       k,
@@ -539,34 +542,47 @@ function UserSignup({ onClose, onLogin }) {
     ])
   );
 
+  // ✅ Update state
   setTouched(allTouched);
   setErrors(allErrors);
 
-  if (Object.values(allErrors).every((e) => !e) && agreed) {
-    try {
-const res = await fetch("http://localhost:5000/api/auth/signup", {
-          method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-body: JSON.stringify({
-  ...form,
-  role: "Member"
-})      });
+  // ✅ Check if all valid and terms agreed
+  const hasErrors = Object.values(allErrors).some((e) => e);
+  if (hasErrors || !agreed) {
+    // Show first error if any
+    const firstError = Object.values(allErrors).find((e) => e);
+    if (firstError) alert(firstError);
+    return;
+  }
 
-      const data = await res.json();
+  try {
+    const res = await fetch("http://localhost:5000/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // ✅ Send complete form data
+      body: JSON.stringify({
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
+        confirmPassword: form.confirmPassword,
+        role: "Member"
+      }),
+    });
 
-      if (res.ok) {
-        console.log("Signup Success:", data);
-        setSubmitted(true);
-      } else {
-        console.error("Signup Failed:", data);
-        alert(data.message || "Signup failed");
-      }
-    } catch (err) {
-      console.error("Error:", err);
-      alert("Server error");
+    const data = await res.json();
+
+    if (res.ok) {
+      console.log("✅ Signup Success:", data);
+      setSubmitted(true);
+    } else {
+      console.error("❌ Signup Failed:", data);
+      alert(data.message || "Signup failed");
     }
+  } catch (err) {
+    console.error("❌ Network Error:", err);
+    alert("Server error. Please try again.");
   }
 };
 

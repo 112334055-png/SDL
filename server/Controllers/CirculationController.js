@@ -132,27 +132,32 @@ exports.getAllRequests = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/circulation/my   (Member — own history)
-// Query: ?status=pending|approved|rejected|returned
-// ─────────────────────────────────────────────────────────────────────────────
 exports.getMyRequests = async (req, res) => {
   try {
-    const { status } = req.query;
-
-    const filter = { member: req.user._id };
-    if (status && ["pending", "approved", "rejected", "returned"].includes(status)) {
-      filter.status = status;
+    if (!req.user?._id) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required"
+      });
     }
 
-    const records = await Circulation.find(filter)
-      .sort({ createdAt: -1 })
-      .populate(POPULATE);
+    const requests = await Circulation.find({ member: req.user._id })
+      .populate("book", "title author genre coverImage copiesAvailable")
+      .populate("actionBy", "firstName lastName")
+      .sort({ createdAt: -1 });
 
-    return res.status(200).json({ success: true, total: records.length, data: records });
+    res.json({
+      success: true,
+      count: requests.length,
+      data: requests,
+    });
+
   } catch (err) {
-    console.error("[getMyRequests]", err);
-    return res.status(500).json({ success: false, message: "Server error", error: err.message });
+    console.error("❌ Get my requests error:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Failed to fetch borrow requests"
+    });
   }
 };
 
@@ -187,55 +192,69 @@ exports.getRequestById = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/circulation/:id/approve   (Librarian only)
-// Approves pending request + decrements copiesAvailable
-// ─────────────────────────────────────────────────────────────────────────────
+// Controllers/CirculationController.js
+
 exports.approveRequest = async (req, res) => {
   try {
-    if (!isValidId(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Invalid ID" });
+    const { id } = req.params;
+    // ✅ FIX: Destructure with default empty string for note
+    const { note = "" } = req.body || {};
+
+    const request = await Circulation.findById(id)
+      .populate("book")
+      .populate("member", "firstName lastName email");
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: "Request not found" });
     }
 
-    const record = await Circulation.findById(req.params.id);
-    if (!record) {
-      return res.status(404).json({ success: false, message: "Record not found" });
-    }
-    if (record.status !== "pending") {
-      return res.status(409).json({
-        success: false,
-        message: `Cannot approve a request that is already "${record.status}"`,
+    if (request.status !== "pending") {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Can only approve pending requests (current status: ${request.status})` 
       });
     }
 
-    // Race-condition guard — re-check availability
-    const book = await Book.findById(record.book);
-    if (!book || book.copiesAvailable < 1) {
-      return res.status(409).json({ success: false, message: "No copies available to approve" });
+    // ✅ Check book availability
+    if (request.book?.copiesAvailable < 1) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Book is currently unavailable" 
+      });
     }
 
-    const now = new Date();
-    const [updatedRecord] = await Promise.all([
-      Circulation.findByIdAndUpdate(
-        record._id,
-        {
-          status:     "approved",
-          actionBy:   req.user._id,
-          actionAt:   now,
-          approvedAt: now,
-          actionNote: req.body.note || "",
-        },
-        { new: true }
-      ).populate(POPULATE),
-      Book.findByIdAndUpdate(record.book, { $inc: { copiesAvailable: -1 } }),
-    ]);
+    // ✅ Update request status
+    request.status = "approved";
+    request.actionBy = req.user?._id || "system"; // Handle missing auth
+    request.actionAt = new Date();
+    request.actionNote = note || "Approved by librarian";
 
-    return res.status(200).json({
+    // ✅ Decrement book copies
+    request.book.copiesAvailable -= 1;
+    await request.book.save();
+    await request.save();
+
+    res.json({
       success: true,
-      message: "Request approved. Book copy reserved for member.",
-      data:    updatedRecord,
+      message: "Request approved successfully",
+      data: {
+        id: request._id,
+        status: request.status,
+        actionNote: request.actionNote,
+        book: {
+          id: request.book._id,
+          title: request.book.title,
+          copiesAvailable: request.book.copiesAvailable,
+        },
+      },
     });
+
   } catch (err) {
-    console.error("[approveRequest]", err);
-    return res.status(500).json({ success: false, message: "Server error", error: err.message });
+    console.error("❌ Approve request error:", err);
+    res.status(500).json({ 
+      success: false, 
+      message: err.message || "Failed to approve request" 
+    });
   }
 };
 
@@ -243,42 +262,98 @@ exports.approveRequest = async (req, res) => {
 // PATCH /api/circulation/:id/reject   (Librarian only)
 // Body (optional): { note: string }
 // ─────────────────────────────────────────────────────────────────────────────
+// rejectRequest
 exports.rejectRequest = async (req, res) => {
   try {
-    if (!isValidId(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Invalid ID" });
+    const { id } = req.params;
+    const { note = "Rejected by librarian" } = req.body || {}; // ✅ Default note
+
+    const request = await Circulation.findById(id)
+      .populate("book")
+      .populate("member", "firstName lastName email");
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: "Request not found" });
     }
 
-    const record = await Circulation.findById(req.params.id);
-    if (!record) {
-      return res.status(404).json({ success: false, message: "Record not found" });
-    }
-    if (record.status !== "pending") {
-      return res.status(409).json({
-        success: false,
-        message: `Cannot reject a request that is already "${record.status}"`,
+    if (request.status !== "pending") {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Can only reject pending requests (current status: ${request.status})` 
       });
     }
 
-    const updatedRecord = await Circulation.findByIdAndUpdate(
-      record._id,
-      {
-        status:     "rejected",
-        actionBy:   req.user._id,
-        actionAt:   new Date(),
-        actionNote: req.body.note || "Rejected by librarian",
-      },
-      { new: true }
-    ).populate(POPULATE);
+    request.status = "rejected";
+    request.actionBy = req.user?._id || "system";
+    request.actionAt = new Date();
+    request.actionNote = note;
 
-    return res.status(200).json({
+    await request.save();
+
+    res.json({
       success: true,
-      message: "Request rejected.",
-      data:    updatedRecord,
+      message: "Request rejected",
+      data: { id: request._id, status: request.status, actionNote: request.actionNote },
     });
+
   } catch (err) {
-    console.error("[rejectRequest]", err);
-    return res.status(500).json({ success: false, message: "Server error", error: err.message });
+    console.error("❌ Reject request error:", err);
+    res.status(500).json({ success: false, message: err.message || "Failed to reject request" });
+  }
+};
+// Controllers/CirculationController.js
+
+
+// returnRequest
+exports.returnRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { note = "" } = req.body || {}; // ✅ Safe destructuring
+
+    const request = await Circulation.findById(id)
+      .populate("book")
+      .populate("member", "firstName lastName email");
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: "Request not found" });
+    }
+
+    if (request.status !== "approved") {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Can only return approved requests (current status: ${request.status})` 
+      });
+    }
+
+    // ✅ Increment book copies
+    request.book.copiesAvailable += 1;
+    await request.book.save();
+
+    request.status = "returned";
+    request.actionBy = req.user?._id || "system";
+    request.actionAt = new Date();
+    request.actualReturnDate = new Date();
+    request.actionNote = note || "Book returned";
+
+    await request.save();
+
+    res.json({
+      success: true,
+      message: "Book marked as returned",
+      data: {
+        id: request._id,
+        status: request.status,
+        book: {
+          id: request.book._id,
+          title: request.book.title,
+          copiesAvailable: request.book.copiesAvailable,
+        },
+      },
+    });
+
+  } catch (err) {
+    console.error("❌ Return request error:", err);
+    res.status(500).json({ success: false, message: err.message || "Failed to process return" });
   }
 };
 
