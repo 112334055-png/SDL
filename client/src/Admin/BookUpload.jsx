@@ -74,6 +74,62 @@ const STYLE = `
     font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
     text-transform: uppercase; color: rgba(184,134,11,0.8);
   }
+    /* Add this inside your STYLE template literal, after .bu-input styles */
+
+.bu-select {
+  width: 100%; padding: 12px 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--card-border); border-radius: 8px;
+  color: black; font-family: 'DM Sans', sans-serif;
+  font-size: 14px; outline: none; transition: border-color 0.2s;
+  appearance: none; /* Remove default arrow */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='rgba(245,240,232,0.6)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  cursor: pointer;
+}
+
+.bu-select:focus {
+  border-color: rgba(184,134,11,0.5);
+  background-color: rgba(255,255,255,0.08);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b8860b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+.bu-select.error {
+  border-color: rgba(220,60,40,0.6);
+  box-shadow: 0 0 0 3px rgba(220,60,40,0.1);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ff8a75' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+.bu-select option {
+  background: var(--card-bg);
+  color: var(--parchment);
+  padding: 8px;
+}
+
+.bu-select:disabled {
+  opacity: 0.6; cursor: not-allowed;
+}
+
+/* Fix for date input styling */
+.bu-input[type="date"] {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='rgba(245,240,232,0.6)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='16' y1='2' x2='16' y2='6'%3E%3C/line%3E%3Cline x1='8' y1='2' x2='8' y2='6'%3E%3C/line%3E%3Cline x1='3' y1='10' x2='21' y2='10'%3E%3C/line%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 36px;
+}
+
+.bu-input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
   .bu-input, .bu-select, .bu-textarea {
     width: 100%; padding: 12px 14px;
     background: rgba(255,255,255,0.05);
@@ -284,12 +340,22 @@ const validators = {
     if (!v?.trim()) return "Please select a genre";
     return "";
   },
-  publicationYear: (v) => {
-    if (!v) return "Year is required";
-    const year = parseInt(v);
-    if (isNaN(year)) return "Numbers only";
-    return "";
-  },
+ // Replace the existing publicationYear validator
+publicationYear: (v) => {
+  if (!v?.trim()) return "Publication date is required";
+  
+  // Check if it's a valid date string (YYYY-MM-DD)
+  const date = new Date(v);
+  if (isNaN(date.getTime())) return "Invalid date format";
+  
+  // Optional: Prevent future dates
+  if (date > new Date()) return "Publication date cannot be in the future";
+  
+  // Optional: Prevent very old dates (e.g., before 1000 AD)
+  if (date.getFullYear() < 1000) return "Please enter a valid publication year";
+  
+  return "";
+},
   copies: (v) => {
     if (!v) return "Required";
     const num = parseInt(v);
@@ -641,12 +707,15 @@ const handleSubmit = async (e) => {
                 </Field>
               </div>
               <div className="bu-grid" style={{ marginTop: 16 }}>
-                <Field
-                  label="Publication Year" name="publicationYear" type="number"
-                  placeholder={new Date().getFullYear()}
-                  value={form.publicationYear} onChange={handleChange} onBlur={handleBlur}
-                  error={errors.publicationYear} required
-                />
+              {/* OLD: Number input for year */}
+<Field
+  label="Publication Year" name="publicationYear" type="number"
+  placeholder={new Date().getFullYear()}
+  value={form.publicationYear} onChange={handleChange} onBlur={handleBlur}
+  error={errors.publicationYear} required
+/>
+
+
                 <Field
                   label="Copies Available" name="copies" type="number"
                   placeholder="1" min="1" max="1000"
